@@ -1,0 +1,213 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<meta name="color-scheme" content="dark"><meta name="theme-color" content="#080c12">
+<title>Analyst — спортивная аналитика</title><style>
+:root{color-scheme:dark;--bg:#080c12;--bg2:#0c121c;--surf:#101722;--raised:#151f2d;--soft:#192536;
+--line:#263448;--line2:#31425c;--txt:#f5f7fb;--mut:#a8b3c4;--faint:#738198;--blue:#5b8cff;
+--blue2:#70b7ff;--green:#32d583;--red:#ff6677;--amber:#f6c453;--violet:#a78bfa;
+--shadow:0 18px 50px rgba(0,0,0,.26);--r:16px;--r-sm:12px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-width:320px;background:
+radial-gradient(900px 500px at 14% -10%,rgba(91,140,255,.12),transparent 60%),
+radial-gradient(800px 480px at 94% 8%,rgba(50,213,131,.07),transparent 62%),var(--bg);
+color:var(--txt);font:15px/1.5 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit}.skip{position:fixed;left:16px;top:-80px;z-index:99;background:var(--txt);color:var(--bg);padding:10px 14px;border-radius:10px}
+.skip:focus{top:12px}.wrap{width:min(1320px,calc(100% - 48px));margin:0 auto;padding:18px 0 88px}
+.top{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:8px 0 14px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:18px;font-weight:760;letter-spacing:-.3px}
+.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:linear-gradient(145deg,var(--blue),#765cff);box-shadow:0 9px 22px rgba(91,140,255,.22);font-size:15px}.brand-copy{display:grid;line-height:1.15}.brand-copy small{margin-top:4px;color:var(--faint);font-size:11px;font-weight:600;letter-spacing:.04em}
+.top-status{display:flex;align-items:center;gap:10px}.clock,.health{display:inline-flex;align-items:center;gap:8px;min-height:34px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--mut);background:rgba(16,23,34,.72);font-size:12px}
+.live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(50,213,131,.09)}
+.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;margin:0 -10px 24px;padding:9px 10px;background:rgba(8,12,18,.86);backdrop-filter:blur(16px);border-bottom:1px solid rgba(38,52,72,.7)}
+.tab{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 16px;border-radius:11px;color:var(--mut);text-decoration:none;font-size:14px;font-weight:680;transition:color .15s,background .15s}
+.tab:hover{color:var(--txt);background:var(--surf)}.tab.active{color:var(--txt);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line2)}
+.sport-dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}.active .sport-dot{background:var(--blue);box-shadow:0 0 0 4px rgba(91,140,255,.12)}
+.page-intro{display:flex;justify-content:space-between;gap:24px;align-items:end;margin:0 0 18px}.eyebrow{margin:0 0 5px;color:var(--blue2);font-size:12px;font-weight:760;letter-spacing:.08em;text-transform:uppercase}.page-intro h1{margin:0;font-size:clamp(24px,3vw,34px);line-height:1.14;letter-spacing:-.035em}.tagline{max-width:680px;margin:8px 0 0;color:var(--mut);font-size:14px}.freshness{color:var(--faint);font-size:12px;white-space:nowrap}
+.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 28px}.stat{position:relative;min-height:116px;padding:18px 19px;background:linear-gradient(160deg,var(--raised),var(--surf));border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.stat::after{content:"";position:absolute;inset:auto -20px -38px auto;width:100px;height:100px;border-radius:50%;background:var(--glow,rgba(91,140,255,.09));filter:blur(4px)}.stat .k{position:relative;z-index:1;color:var(--mut);font-size:12px;font-weight:680}.stat .v{position:relative;z-index:1;margin-top:7px;font-size:30px;line-height:1;font-weight:780;letter-spacing:-.045em}.stat .s{position:relative;z-index:1;margin-top:8px;color:var(--faint);font-size:12px}.stat.profit{--glow:rgba(50,213,131,.13)}.stat.alerts{--glow:rgba(255,102,119,.11)}
+.primary-grid,.secondary-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:18px;align-items:start}.primary-grid{margin-bottom:30px}.secondary-grid{margin-top:30px}.side-stack{display:grid;gap:16px}
+.panel{background:rgba(16,23,34,.9);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel-pad{padding:20px}.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.section-head h2,.sect{margin:0;color:var(--txt);font-size:18px;line-height:1.3;font-weight:730;letter-spacing:-.018em;text-transform:none}.section-head p{margin:5px 0 0;color:var(--mut);font-size:13px}.count{display:inline-flex;align-items:center;justify-content:center;min-width:27px;height:27px;border-radius:999px;background:rgba(91,140,255,.13);color:var(--blue2);font-size:12px;font-weight:760}
+.signals{display:grid;gap:10px}.signal{position:relative;padding:18px 18px 16px;background:linear-gradient(135deg,rgba(21,31,45,.98),rgba(16,23,34,.98));border:1px solid var(--line);border-radius:14px;overflow:hidden}.signal::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--tone,var(--green))}.signal.live-signal{--tone:var(--red)}.signal.anti{--tone:var(--violet)}.signal-head,.mrow{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.signal-kicker{display:flex;align-items:center;gap:8px;margin-bottom:4px;color:var(--faint);font-size:12px}.signal h3,.team{margin:0;font-size:16px;line-height:1.35;font-weight:720;overflow-wrap:anywhere}.badge{display:inline-flex;align-items:center;gap:6px;min-height:25px;padding:4px 9px;border-radius:999px;white-space:nowrap;font-size:11px;font-weight:740}.b-live{color:var(--red);background:rgba(255,102,119,.12)}.b-ok,.b-val{color:var(--green);background:rgba(50,213,131,.11)}.b-warn,.b-md{color:var(--amber);background:rgba(246,196,83,.11)}.b-hi{color:var(--red);background:rgba(255,102,119,.11)}.b-neutral{color:var(--blue2);background:rgba(91,140,255,.12)}
+.pick-main{display:flex;align-items:baseline;gap:9px;margin:14px 0 13px}.pick-main strong{font-size:22px;line-height:1.2;letter-spacing:-.025em}.pick-main span{color:var(--mut);font-size:13px}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.metric{padding:9px 10px;border-radius:10px;background:rgba(25,37,54,.7)}.metric span{display:block;color:var(--faint);font-size:11px}.metric b{display:block;margin-top:2px;font-size:14px}.signal-foot{display:flex;justify-content:space-between;gap:14px;margin-top:12px;padding-top:11px;border-top:1px solid rgba(38,52,72,.7);color:var(--faint);font-size:12px}.source{display:inline-flex;align-items:center;gap:6px}.source::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}.source.risk::before{background:var(--red)}.source.neutral::before{background:var(--amber)}
+.status-card{padding:19px}.status-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.status-line strong{font-size:16px}.status-good{color:var(--green)}.strategy-list{display:grid;gap:2px}.strategy{padding:12px 0;border-top:1px solid rgba(38,52,72,.65)}.strategy:first-child{border-top:0}.strategy-top{display:flex;justify-content:space-between;gap:12px;font-size:13px}.strategy-top b{font-size:13px}.strategy-meta{display:flex;gap:10px;margin-top:4px;color:var(--faint);font-size:11px}.method{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}.method summary{cursor:pointer;color:var(--mut);font-size:13px;font-weight:650}.method p{color:var(--faint);font-size:12px}
+.full-section{margin-top:30px}.live-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:16px;margin:10px 0}.card.val{border-color:rgba(50,213,131,.36);background:linear-gradient(135deg,rgba(50,213,131,.05),var(--surf) 34%)}.live-card{margin:0;padding:17px;background:linear-gradient(145deg,var(--raised),var(--surf))}.match-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;color:var(--faint);font-size:12px}.prob-labels{display:flex;justify-content:space-between;gap:16px;margin-top:16px;font-size:12px;overflow-wrap:anywhere}.prob-labels b{font-size:13px}.probbar{display:flex;height:8px;margin:7px 0 0;border-radius:999px;overflow:hidden;background:var(--soft)}.probbar .a{flex:0 0 var(--pa,50%);width:var(--pa,50%);padding:0;background:linear-gradient(90deg,var(--blue),var(--blue2))}.probbar .b{flex:0 0 calc(100% - var(--pa,50%));width:calc(100% - var(--pa,50%));padding:0;background:#2a3547}.pick{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:13px;padding:10px 12px;border-radius:10px;background:rgba(91,140,255,.07);border:1px solid rgba(91,140,255,.2)}.pick b{font-size:14px}.mut{color:var(--mut);font-size:13px}.pos{color:var(--green)}.neg{color:var(--red)}.blu{color:var(--blue2)}.amb{color:var(--amber)}
+.line-score{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.line-score .metric{padding:12px}.line-score .metric b{font-size:17px}.empty{padding:22px;text-align:center;color:var(--mut);background:rgba(16,23,34,.7);border:1px dashed var(--line2);border-radius:13px;font-size:13px}.board-list{display:grid;gap:9px}.board-card{padding:15px;border:1px solid var(--line);border-radius:13px;background:rgba(21,31,45,.72)}.board-top{display:flex;justify-content:space-between;gap:14px}.board-title{font-weight:710;overflow-wrap:anywhere}.board-time{margin-top:3px;color:var(--faint);font-size:11px}.board-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:11px}.board-metrics .metric{padding:8px}.board-action{margin-top:10px;color:var(--green);font-weight:700;font-size:13px}.news-note{margin-top:9px;color:var(--mut);font-size:12px;overflow-wrap:anywhere}
+.calibration{margin-top:30px}.calib-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.calib{padding:15px;border-radius:13px;background:var(--raised);border:1px solid var(--line)}.calib .lab{display:flex;justify-content:space-between;gap:10px;font-size:12px}.calib .lab b{font-size:13px}.bar{position:relative;height:9px;margin:13px 0 9px;background:#293548;border-radius:999px;overflow:visible}.bar .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:999px}.bar .mark{position:absolute;top:-4px;width:3px;height:17px;border-radius:2px;background:var(--amber);box-shadow:0 0 0 3px rgba(246,196,83,.1)}.calib-legend{display:flex;justify-content:space-between;color:var(--faint);font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.strat{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:16px}.strat h3{margin:0;font-size:15px}.strat .desc{color:var(--mut);font-size:12px}.strat .big{display:flex;align-items:baseline;gap:10px}.strat .wr{font-size:27px;font-weight:760}.strat .meta{display:flex;gap:12px;color:var(--mut);font-size:12px}.three{display:flex;gap:7px;margin:10px 0}.three>div{flex:1;text-align:center;background:var(--soft);border-radius:9px;padding:7px}.three b{display:block;font-size:15px}.brand .dot{color:var(--green)}.sect{display:flex;align-items:center;gap:10px;margin-top:28px;margin-bottom:12px;flex-wrap:wrap}.sect .mut{font-weight:400}.foot{margin-top:34px;padding:20px;border-top:1px solid var(--line);color:var(--faint);text-align:center;font-size:12px}.foot strong{color:var(--mut)}
+.mobile-nav{display:none}.risk-note{margin-top:18px;padding:13px 15px;border-radius:12px;background:rgba(246,196,83,.06);color:var(--mut);font-size:12px;border:1px solid rgba(246,196,83,.15)}
+:focus-visible{outline:2px solid #78a9ff;outline-offset:3px}
+@media(max-width:1020px){.wrap{width:min(100% - 32px,900px)}.primary-grid,.secondary-grid{grid-template-columns:1fr}.side-stack{grid-template-columns:repeat(2,minmax(0,1fr))}.calib-grid{grid-template-columns:1fr}.live-grid{grid-template-columns:1fr}}
+@media(max-width:700px){body{font-size:14px}.wrap{width:calc(100% - 24px);padding-bottom:100px}.top{min-height:52px}.brand-copy small,.health{display:none}.tabs{margin:0 -12px 18px;padding-left:12px;overflow:auto}.tab{min-width:112px}.page-intro{display:block}.freshness{display:block;margin-top:8px}.hero{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{min-height:102px;padding:14px}.stat .v{font-size:25px}.primary-grid,.secondary-grid{gap:12px}.panel-pad,.status-card{padding:15px}.side-stack{grid-template-columns:1fr}.signal-head,.mrow,.board-top{align-items:flex-start;flex-direction:column}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.signal-foot,.pick{align-items:flex-start;flex-direction:column}.live-grid{grid-template-columns:1fr}.board-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.mobile-nav{position:fixed;z-index:30;left:10px;right:10px;bottom:10px;display:grid;grid-template-columns:repeat(4,1fr);padding:7px;background:rgba(16,23,34,.94);border:1px solid var(--line2);border-radius:15px;backdrop-filter:blur(18px);box-shadow:var(--shadow)}.mobile-nav a{display:grid;place-items:center;min-height:43px;border-radius:9px;color:var(--mut);text-decoration:none;font-size:11px}.mobile-nav a:focus,.mobile-nav a:hover{background:var(--raised);color:var(--txt)}}
+@media(max-width:420px){.hero{grid-template-columns:1fr 1fr}.stat .s{font-size:11px}.board-metrics{grid-template-columns:1fr}.top-status .clock{padding:5px 8px}.pick-main{display:block}.pick-main strong{overflow-wrap:anywhere}.pick-main span{display:block;margin-top:4px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+</style></head><body><a class="skip" href="#main">К содержанию</a><div class="wrap">
+<header class=top><a class=brand href="/football" aria-label="Analyst — футбол"><span class=brand-mark aria-hidden=true>⚽</span>
+<span class=brand-copy>Analyst<small>Football decision dashboard</small></span></a>
+<div class=top-status><span class=health><span class=live></span>модель активна</span><span class=clock>18:51 UTC</span></div></header>
+<nav class="tabs" aria-label="Вид спорта"><a href="/" class="tab"><span class=sport-dot aria-hidden=true></span>CS2</a><a href="/football" class="tab active" aria-current=page><span class=sport-dot aria-hidden=true></span>Футбол</a></nav>
+<main id=main><section class=page-intro aria-labelledby=football-title><div><p class=eyebrow>Футбол</p>
+<h1 id=football-title>Прогнозы и рыночное преимущество</h1><p class=tagline>Матмодель Elo + Пуассон/Dixon-Coles + ML-ансамбль. Показываем value относительно букмекерской линии.</p></div>
+<span class=freshness>Калибровка на исторической выборке</span></section>
+<div class=hero>
+<div class=stat><div class=k>Прогнозов</div><div class=v>75</div><div class=s>45 впереди · 30 сыграно</div></div>
+<div class=stat><div class=k>Исход 1X2</div><div class="v pos">53%</div><div class=s>по 30 матчам</div></div>
+<div class=stat><div class=k>Топ-рынок</div><div class="v pos">Обе забьют</div><div class=s>реальный край vs бук</div></div>
+<div class=stat><div class=k>Value-ставок</div><div class="v blu">2</div><div class=s>в ближайших матчах</div></div>
+</div>
+<div class=sect>📊 Где у модели РЕАЛЬНЫЙ край над букмекером <span class=mut style="text-transform:none;letter-spacing:0;font-weight:400">— по ~7500 матчам (винрейт врёт, край — нет)</span></div>
+<div class=card>
+<div class=mrow><span class=team>Обе забьют (BTTS)</span><b class=pos>✓ есть край · +2.3 · 5907 матч.</b></div>
+<div class=mrow><span class=team>Тоталы (ТБ/ТМ)</span><b class=pos>✓ есть край · +0.8 · 7578 матч.</b></div>
+<div class=mrow><span class=team>Исход 1X2</span><b class=mut>✗ нет края · -0.4 · 7578 матч.</b></div>
+</div>
+<div class=sect>🎯 Где край реально заходит <span class=mut style="text-transform:none;letter-spacing:0;font-weight:400">— маркет + зона уверенности модели</span></div>
+<div class=card>
+<div class=calib>
+<div class=lab><span><b>ТБ 2.5 голов</b> · модель 60-65% · 459 матч.</span><span class="badge b-ok">+10.8 п.п. края</span></div>
+<div class=bar><div class=fill style="width:73%"></div><div class=mark style="left:62%"></div></div>
+<div class=lab><span class=mut>реально 73% заходит</span><span class=mut>▾ бук ждёт ~62%</span></div>
+</div><div style="height:10px"></div>
+<div class=calib>
+<div class=lab><span><b>ТБ 2.5 голов</b> · модель 55-60% · 1233 матч.</span><span class="badge b-ok">+8.4 п.п. края</span></div>
+<div class=bar><div class=fill style="width:66%"></div><div class=mark style="left:57%"></div></div>
+<div class=lab><span class=mut>реально 66% заходит</span><span class=mut>▾ бук ждёт ~57%</span></div>
+</div><div style="height:10px"></div>
+<div class=calib>
+<div class=lab><span><b>Обе забьют · много голов</b> · модель 55-60% · 621 матч.</span><span class="badge b-ok">+5.3 п.п. края</span></div>
+<div class=bar><div class=fill style="width:63%"></div><div class=mark style="left:58%"></div></div>
+<div class=lab><span class=mut>реально 63% заходит</span><span class=mut>▾ бук ждёт ~58%</span></div>
+</div><div style="height:10px"></div>
+<div class=calib>
+<div class=lab><span><b>ТБ 2.5 голов</b> · модель 50-55% · 1904 матч.</span><span class="badge b-ok">+4.4 п.п. края</span></div>
+<div class=bar><div class=fill style="width:57%"></div><div class=mark style="left:52%"></div></div>
+<div class=lab><span class=mut>реально 57% заходит</span><span class=mut>▾ бук ждёт ~52%</span></div>
+</div><div style="height:10px"></div>
+<div class=calib>
+<div class=lab><span><b>Обе забьют</b> · модель 55-60% · 1382 матч.</span><span class="badge b-ok">+3.9 п.п. края</span></div>
+<div class=bar><div class=fill style="width:61%"></div><div class=mark style="left:57%"></div></div>
+<div class=lab><span class=mut>реально 61% заходит</span><span class=mut>▾ бук ждёт ~57%</span></div>
+</div><div style="height:10px"></div>
+</div>
+<div class=sect>🎯 Предстоящие прогнозы</div>
+<div class="card">
+<div class=mrow><span class=team>France vs Spain</span><span class="badge b-hi">риск высокий</span></div>
+<div class=three><div>П1<b>45%</b></div><div>X<b>29%</b></div><div>П2<b>27%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 62% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Spain vs Belgium</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>54%</b></div><div>X<b>26%</b></div><div>П2<b>20%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 68% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>USA vs Belgium</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>29%</b></div><div>X<b>24%</b></div><div>П2<b>46%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 82% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Portugal vs Spain</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>37%</b></div><div>X<b>28%</b></div><div>П2<b>36%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 61% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Mexico vs England</span><span class="badge b-hi">риск высокий</span></div>
+<div class=three><div>П1<b>46%</b></div><div>X<b>29%</b></div><div>П2<b>25%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 71% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Brazil vs Norway</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>57%</b></div><div>X<b>26%</b></div><div>П2<b>17%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 71% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Paraguay vs France</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>29%</b></div><div>X<b>27%</b></div><div>П2<b>44%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 72% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Canada vs Morocco</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>42%</b></div><div>X<b>29%</b></div><div>П2<b>29%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 62% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Australia vs Egypt</span><span class="badge b-hi">риск высокий</span></div>
+<div class=three><div>П1<b>42%</b></div><div>X<b>27%</b></div><div>П2<b>32%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 69% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Spain vs Austria</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>58%</b></div><div>X<b>27%</b></div><div>П2<b>15%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 70% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Argentina vs Cape Verde</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>57%</b></div><div>X<b>26%</b></div><div>П2<b>17%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 72% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Switzerland vs Algeria</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>57%</b></div><div>X<b>27%</b></div><div>П2<b>16%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 67% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Mexico vs Ecuador</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>53%</b></div><div>X<b>27%</b></div><div>П2<b>20%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 69% → реально ~73%</b></div>
+</div>
+<div class="card">
+<div class=mrow><span class=team>Belgium vs Senegal</span><span class="badge b-md">риск средний</span></div>
+<div class=three><div>П1<b>55%</b></div><div>X<b>26%</b></div><div>П2<b>19%</b></div></div>
+<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="pos">ТБ 2.5 голов · модель 74% → реально ~73%</b></div>
+</div>
+<div class=sect>📜 Последние результаты</div>
+<div class=card>
+<div class=mrow><span class=team>ACF Fiorentina vs Internazionale</span><span class="badge b-warn">✗ 1X2</span></div>
+<div class=mrow><span class=mut>BTTS No</span><b>счёт 1-1</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>AS Roma vs US Lecce</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>Over 1.5</span><b>счёт 1-0</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Bologna FC vs SS Lazio</span><span class="badge b-warn">✗ 1X2</span></div>
+<div class=mrow><span class=mut>Over 1.5</span><b>счёт 0-2</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Atalanta BC vs Hellas Verona</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>Over 2.5</span><b>счёт 1-0</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Como 1907 vs Pisa</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>No bet - market edge too small</span><b>счёт 5-0</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Real Madrid vs Atlético Madrid</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>Over 2.5 Goals</span><b>счёт 3-2</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Athletic Club vs Real Betis</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>Under 2.5 Goals</span><b>счёт 2-1</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Celta Vigo vs Deportivo Alavés</span><span class="badge b-warn">✗ 1X2</span></div>
+<div class=mrow><span class=mut>No bet - data completeness too low</span><b>счёт 3-4</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Barcelona vs Rayo Vallecano</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>BTTS Yes</span><b>счёт 1-0</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>FC Augsburg vs VfB Stuttgart</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>Over 2.5</span><b>счёт 2-5</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>St. Pauli vs SC Freiburg</span><span class="badge b-ok">✓ 1X2</span></div>
+<div class=mrow><span class=mut>Pass — No Clear Edge</span><b>счёт 1-2</b></div>
+</div>
+<div class=card>
+<div class=mrow><span class=team>Mainz 05 vs Eintracht Frankfurt</span><span class="badge b-warn">✗ 1X2</span></div>
+<div class=mrow><span class=mut>Over 2.5</span><b>счёт 2-1</b></div>
+</div>
+</main><footer class=foot>⚽ Матмодель + ИИ-разбор · value = где наша вероятность выше, чем даёт бук<br>
+прогнозы приходят в Telegram · самообучение уроков включено</footer>
+</div></body></html>

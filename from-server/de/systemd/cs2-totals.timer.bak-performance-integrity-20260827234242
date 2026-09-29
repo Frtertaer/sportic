@@ -1,0 +1,10 @@
+[Unit]
+Description=CS2 round-totals value scan every 20 min
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

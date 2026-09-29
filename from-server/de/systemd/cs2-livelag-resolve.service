@@ -1,0 +1,9 @@
+[Unit]
+Description=CS2 live-lag forward-test resolver
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 /opt/cs2-analyst/livelag_resolve.py
+TimeoutStartSec=180

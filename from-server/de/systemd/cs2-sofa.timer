@@ -1,0 +1,7 @@
+[Unit]
+Description=SofaScore live-goals every 150s
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=150
+[Install]
+WantedBy=timers.target

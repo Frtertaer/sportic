@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Phase 2A — 'goal expected' signal on SofaScore-covered (top/mid) matches. Reads sofa_live.json +
+sofa_live_history.jsonl, computes LIVE MOMENTUM (Δ total-xG in the last ~10 min + big chances + shots
+on target + touches in box) for each match that HAS xG, and fires «Ожидается гол» when pressure is
+high in the actionable window (25-85'). Better than MULTI BOT: it's an xG-momentum model, not a crude
+attack threshold, and it's only BETTABLE when the live over-0.5 odds are juicy (odds gate — you
+confirm the winline coefficient; bet only >=1.15). Logs to sofa_signal_log.jsonl + DMs Telegram."""
+from __future__ import annotations
+import json, sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+LIVE = ROOT / "data" / "sofa_live.json"
+HIST = ROOT / "data" / "sofa_live_history.jsonl"
+LOG = ROOT / "data" / "sofa_signal_log.jsonl"
+SEEN = ROOT / "data" / "sofa_signal_seen.json"
+sys.path.insert(0, str(ROOT))
+
+WIN_MIN, WIN_MAX = 25, 85        # actionable minute window
+XG_RECENT = 0.30                 # >= this much xG added in the last ~10 min = strong pressure
+BIGCH_RECENT = 2                 # or this many big chances recently
+DEDUP_MIN = 18                   # one signal per match per this many minutes
+
+
+def _read(p):
+    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] if p.exists() else []
+
+
+def _tot(r, k):
+    return (r.get(k + "_h") or 0) + (r.get(k + "_a") or 0)
+
+
+def _recent(mid, cur_min, hist, key, window=12):
+    """value added to `key` total over the last ~`window` minutes for match mid, or None."""
+    past = [h for h in hist if h.get("id") == mid and h.get("minute") is not None
+            and 3 <= (cur_min - h["minute"]) <= window and h.get(key + "_h") is not None]
+    if not past:
+        return None
+    p = min(past, key=lambda h: h["minute"])
+    return _tot({k: p.get(k) for k in (key + "_h", key + "_a")}, key)
+
+
+
+def _send_tg(msg):
+    """Отправка сигнала на выделенный SofaScore-бот (data/sofa_tg.json)."""
+    import json as _j, urllib.request as _u, urllib.parse as _p
+    cfg = _j.loads((ROOT / "data" / "sofa_tg.json").read_text(encoding="utf-8"))
+    data = _p.urlencode({"chat_id": cfg["chat_id"], "text": msg,
+                         "parse_mode": "HTML", "disable_web_page_preview": "true"}).encode()
+    _u.urlopen("https://api.telegram.org/bot%s/sendMessage" % cfg["token"], data=data, timeout=15)
+
+
+def main(dry=False):
+    live = {}
+    try:
+        live = json.loads(LIVE.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        print("no sofa_live.json"); return
+    hist = _read(HIST)
+    try:
+        seen = json.loads(SEEN.read_text(encoding="utf-8")) if SEEN.exists() else {}
+    except Exception:  # noqa: BLE001
+        seen = {}
+    fired = 0
+    for r in live.get("matches", []):
+        mid, minute = r.get("id"), r.get("minute")
+        if r.get("xg_h") is None or minute is None or not (WIN_MIN <= minute <= WIN_MAX):
+            continue                      # only SofaScore-covered matches with xG, in window
+        cur_xg = _tot(r, "xg")
+        past_xg = _recent(mid, minute, hist, "xg", 12)
+        recent_xg = (cur_xg - past_xg) if past_xg is not None else None
+        cur_big = _tot(r, "bigch")
+        past_big = _recent(mid, minute, hist, "bigch", 12)
+        recent_big = (cur_big - past_big) if past_big is not None else 0
+        strong = (recent_xg is not None and recent_xg >= XG_RECENT) or (recent_big >= BIGCH_RECENT)
+        if not strong:
+            continue
+        key = f"{mid}"
+        last = seen.get(key)
+        if last is not None and minute - last < DEDUP_MIN:
+            continue
+        pace = f"+{recent_xg:.2f} xG за ~10мин" if recent_xg is not None else f"+{recent_big:.0f} big chance"
+        msg = (f"⚽ <b>Ожидается гол</b> (SofaScore live-xG) — {r['home']} vs {r['away']}\n"
+               f"   {r.get('tourn','')} | счёт {r.get('sh')}:{r.get('sa')} {minute}'\n"
+               f"   момент: <b>{pace}</b> | xG {r.get('xg_h')}-{r.get('xg_a')} | "
+               f"удары в створ {r.get('sot_h')}-{r.get('sot_a')} | big {r.get('bigch_h')}-{r.get('bigch_a')}\n"
+               f"   → рынок: <b>ТБ 0.5 (ещё гол до конца)</b>. Бери на winline ТОЛЬКО если live-коэф ≥ 1.15")
+        print(msg.replace("<b>", "").replace("</b>", ""))
+        if not dry:
+            try:
+                _send_tg(msg)
+            except Exception as e:  # noqa: BLE001
+                print("tg fail:", e)
+            with LOG.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"id": mid, "home": r["home"], "away": r["away"], "minute": minute,
+                                    "score": f"{r.get('sh')}-{r.get('sa')}", "tot_goals": (r.get("sh") or 0) + (r.get("sa") or 0),
+                                    "recent_xg": recent_xg, "recent_big": recent_big, "tourn": r.get("tourn"),
+                                    "logged_at": datetime.now(timezone.utc).isoformat()}, ensure_ascii=False) + "\n")
+        seen[key] = minute
+        fired += 1
+    if not dry:
+        SEEN.write_text(json.dumps(seen), encoding="utf-8")
+    print(f"signals fired: {fired}")
+
+
+if __name__ == "__main__":
+    main(dry="--dry" in sys.argv)

@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Grade «Ожидается гол» signals (sofa_signal_log.jsonl): did a goal come AFTER the signal? Uses
+sofa_live_history.jsonl — HIT if a later snapshot of the same match shows more total goals. The
+honest win-rate track (measure, don't trust the display). Writes sofa_signal_results.jsonl."""
+import json
+from collections import defaultdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+LOG = ROOT / "data" / "sofa_signal_log.jsonl"
+RES = ROOT / "data" / "sofa_signal_results.jsonl"
+HIST = ROOT / "data" / "sofa_live_history.jsonl"
+
+
+def _read(p):
+    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] if p.exists() else []
+
+
+def run():
+    sigs = _read(LOG)
+    done = {f"{r['id']}|{r['logged_at']}" for r in _read(RES)}
+    byid = defaultdict(list)
+    for h in _read(HIST):
+        if h.get("id") is not None and h.get("minute") is not None:
+            byid[h["id"]].append((h["minute"], (h.get("sh") or 0) + (h.get("sa") or 0)))
+    out = []
+    for s in sigs:
+        if f"{s['id']}|{s['logged_at']}" in done:
+            continue
+        later = [x for x in byid.get(s["id"], []) if x[0] > s.get("minute", 0)]
+        if not later:
+            continue                                  # no later data yet -> pending
+        maxgoals = max(g for _, g in later)
+        last_min = max(m for m, _ in later)
+        won = maxgoals > s.get("tot_goals", 0)
+        if not won and last_min < 89:                 # match still going, no goal yet -> pending
+            continue
+        rec = dict(s); rec["outcome"] = "win" if won else "loss"; rec["final_goals"] = maxgoals
+        out.append(rec)
+    if out:
+        with RES.open("a", encoding="utf-8") as f:
+            for r in out:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    res = _read(RES); n = len(res); w = sum(1 for r in res if r["outcome"] == "win")
+    print(f"graded {len(out)} | ТРЕК: {w}/{n} = {100*w/n:.0f}%" if n else f"graded {len(out)} | трек пуст")
+
+
+if __name__ == "__main__":
+    run()

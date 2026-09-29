@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""CS2 veto Monte-Carlo + series win probability, on top of per-map Glicko (ratings.py).
+
+The veto IS the model: each team bans maps that are bad FOR THEM and picks maps that
+are good for them, judged by the per-map Glicko win probability. We sample the whole
+pick/ban sequence many times (softmax with a temperature), play the resulting maps
+(with a small own-pick bonus + momentum), and aggregate into a match win probability
+and a map-score distribution.
+
+  python veto_sim.py upcoming [N]            list upcoming matches BOTH teams are rated for
+  python veto_sim.py predict <t1> <t2> <bo>  predict a matchup (team ids, bo=1/3/5)
+  python veto_sim.py match <slug>            predict a specific upcoming bo3.gg match
+"""
+from __future__ import annotations
+
+import math
+import random
+import sqlite3
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+from ratings import R, win_prob, BASE_R, BASE_RD  # noqa: E402
+
+DB = ROOT / "cs2.db"
+VETO_TEMP = 0.12      # softmax temperature on win-prob desirability (lower = more rational)
+PICK_BONUS = 0.03     # extra win prob on a team's own picked map
+MOMENTUM = 0.02       # win-prob bump for the map leader
+N_SIMS = 20000
+
+# Standard veto sequences: True = ban, False = pick; choices alternate A,B,A,B...
+# The final leftover map is always the decider.
+VETO_SEQ = {
+    1: [True, True, True, True, True, True],            # Bo1: 6 bans -> 1 left
+    3: [True, True, False, False, True, True],          # Bo3: ban,ban,pick,pick,ban,ban -> 1 left
+    5: [True, True, False, False, False, False],        # Bo5: ban,ban,pick,pick,pick,pick -> 1 left
+}
+
+
+def _conn() -> sqlite3.Connection:
+    c = sqlite3.connect(str(DB), timeout=30)
+    c.row_factory = sqlite3.Row
+    return c
+
+
+def active_pool(conn) -> list[str]:
+    rows = conn.execute(
+        "SELECT map, SUM(games) g FROM map_ratings WHERE map IS NOT NULL "
+        "GROUP BY map ORDER BY g DESC LIMIT 7"
+    ).fetchall()
+    return [r["map"] for r in rows]
+
+
+def team_ratings(conn, tid: int, pool: list[str]) -> dict[str, R]:
+    out = {mp: R() for mp in pool}
+    for r in conn.execute("SELECT map, rating, rd, games FROM map_ratings WHERE team_id=?", (tid,)):
+        if r["map"] in out:
+            out[r["map"]] = R(r["rating"], r["rd"])
+            out[r["map"]].games = r["games"]
+    return out
+
+
+def team_name(conn, tid: int) -> str:
+    row = conn.execute("SELECT name FROM teams WHERE id=?", (tid,)).fetchone()
+    return row["name"] if row and row["name"] else str(tid)
+
+
+RATING_BLEND = 0.6   # how much the per-map rating nudges within the empirical tendency
+
+
+def _weighted_pick(weights: list[float]) -> int:
+    tot = sum(max(0.0, w) for w in weights)
+    if tot <= 0:
+        return random.randrange(len(weights))
+    r = random.random() * tot
+    acc = 0.0
+    for i, w in enumerate(weights):
+        acc += max(0.0, w)
+        if r <= acc:
+            return i
+    return len(weights) - 1
+
+
+def simulate_veto(rt1: dict, rt2: dict, pool: list[str], bo: int,
+                  tid1: int, tid2: int) -> list[tuple[str, int]]:
+    """Return played maps as (map, picked_by) — picked_by: 1,2, or 0 for decider.
+
+    Selection uses each team's EMPIRICAL ban/pick propensity per map (veto_policy,
+    learned from real vetos — calibration showed ratings alone don't predict vetos),
+    nudged by the per-map win prob (ban weak / pick strong)."""
+    from veto_policy import get_policy
+    pol = get_policy()
+    remaining = list(pool)
+    seq = VETO_SEQ.get(bo, VETO_SEQ[3])
+    picks: list[tuple[str, int]] = []
+    actor = 1  # team 1 starts
+    for is_ban in seq:
+        if not remaining:
+            break
+        me, opp = (rt1, rt2) if actor == 1 else (rt2, rt1)
+        tid = tid1 if actor == 1 else tid2
+        if is_ban:
+            weights = [pol.ban_prop(tid, mp) * (1.0 + RATING_BLEND * (0.5 - win_prob(me[mp], opp[mp])))
+                       for mp in remaining]
+            remaining.pop(_weighted_pick(weights))
+        else:
+            weights = [pol.pick_prop(tid, mp) * (1.0 + RATING_BLEND * (win_prob(me[mp], opp[mp]) - 0.5))
+                       for mp in remaining]
+            picks.append((remaining.pop(_weighted_pick(weights)), actor))
+        actor = 2 if actor == 1 else 1
+    for mp in remaining:               # leftover(s) = decider(s)
+        picks.append((mp, 0))
+    return picks
+
+
+SIDE_BLEND = 0.30   # weight of the side-aware (CT/T) map prob vs aggregate Glicko
+
+
+def _map_winprob(rt1: dict, rt2: dict, mp: str, picked_by: int,
+                 t1: int = 0, t2: int = 0) -> float:
+    p = win_prob(rt1[mp], rt2[mp])
+    if t1 and t2:
+        try:
+            import side_split
+            ps = side_split.side_map_prob(t1, t2, mp)
+            if ps is not None:
+                p = (1.0 - SIDE_BLEND) * p + SIDE_BLEND * ps
+        except Exception:  # noqa: BLE001 — side data optional
+            pass
+    if picked_by == 1:
+        p += PICK_BONUS
+    elif picked_by == 2:
+        p -= PICK_BONUS
+    return min(0.97, max(0.03, p))
+
+
+def predict(t1: int, t2: int, bo: int, n_sims: int = N_SIMS) -> dict:
+    conn = _conn()
+    pool = active_pool(conn)
+    rt1 = team_ratings(conn, t1, pool)
+    rt2 = team_ratings(conn, t2, pool)
+    name1, name2 = team_name(conn, t1), team_name(conn, t2)
+    conn.close()
+
+    need = 2 if bo == 3 else (3 if bo == 5 else 1)
+    t1_wins = 0
+    score_counts: dict[str, int] = {}
+    map_play: dict[str, int] = {}
+    map_t1win: dict[str, int] = {}
+    for _ in range(n_sims):
+        played = simulate_veto(rt1, rt2, pool, bo, t1, t2)
+        s1 = s2 = 0
+        lead = 0  # +1 t1 momentum, -1 t2
+        for mp, by in played:
+            if s1 == need or s2 == need:
+                break
+            p = _map_winprob(rt1, rt2, mp, by, t1, t2) + (MOMENTUM if lead == 1 else -MOMENTUM if lead == -1 else 0)
+            p = min(0.98, max(0.02, p))
+            map_play[mp] = map_play.get(mp, 0) + 1
+            if random.random() < p:
+                s1 += 1; lead = 1; map_t1win[mp] = map_t1win.get(mp, 0) + 1
+            else:
+                s2 += 1; lead = -1
+        if s1 > s2:
+            t1_wins += 1
+        key = f"{s1}-{s2}"
+        score_counts[key] = score_counts.get(key, 0) + 1
+
+    p1 = t1_wins / n_sims
+
+    # round-totals (O/U map rounds) for the most-likely-played maps
+    round_tot = []
+    try:
+        import round_totals as rtot
+        for mp, _ in sorted(map_play.items(), key=lambda x: -x[1])[:3]:
+            pm = win_prob(rt1[mp], rt2[mp])
+            ou = rtot.over_under(mp, pm, 23.5)
+            round_tot.append({"map": mp, "exp_rounds": ou["expected"],
+                              "p_over_23_5": ou["p_over"],
+                              "fair_over": ou["fair_over"], "fair_under": ou["fair_under"]})
+    except Exception:  # noqa: BLE001 — round-totals optional
+        round_tot = []
+
+    return {
+        "team1": name1, "team2": name2, "bo": bo,
+        "round_totals": round_tot,
+        "p1_win": round(p1, 3), "p2_win": round(1 - p1, 3),
+        "fair_odds_t1": round(1 / p1, 2) if p1 > 0 else None,
+        "fair_odds_t2": round(1 / (1 - p1), 2) if p1 < 1 else None,
+        "score_dist": {k: round(v / n_sims, 3) for k, v in sorted(score_counts.items(), key=lambda x: -x[1])},
+        "map_frequency": {k: round(v / n_sims, 2) for k, v in sorted(map_play.items(), key=lambda x: -x[1])},
+        "map_t1_winrate": {k: round(map_t1win.get(k, 0) / v, 2) for k, v in sorted(map_play.items(), key=lambda x: -x[1]) if v},
+        "rated1": sum(1 for r in rt1.values() if r.games >= 3),
+        "rated2": sum(1 for r in rt2.values() if r.games >= 3),
+    }
+
+
+def _print(p: dict) -> None:
+    print(f"\n  {p['team1']}  vs  {p['team2']}   (Bo{p['bo']})")
+    print(f"  P(win): {p['team1']} {p['p1_win']*100:.0f}%  |  {p['team2']} {p['p2_win']*100:.0f}%")
+    print(f"  fair odds: {p['team1']} {p['fair_odds_t1']}  |  {p['team2']} {p['fair_odds_t2']}")
+    print(f"  rated maps: {p['team1']} {p['rated1']}/7, {p['team2']} {p['rated2']}/7")
+    print(f"  score dist: {p['score_dist']}")
+    print(f"  map freq:   {p['map_frequency']}")
+    print(f"  {p['team1']} map winrate: {p['map_t1_winrate']}")
+    if p.get("round_totals"):
+        print("  тоталы раундов (модель ждёт / наш справедливый коэф на линии 23.5):")
+        for r in p["round_totals"]:
+            side, odd = ("ТБ", r["fair_over"]) if r["p_over_23_5"] >= 0.5 else ("ТМ", r["fair_under"])
+            print(f"     {r['map']:9s} ~{r['exp_rounds']:.0f} раундов  (наш {side} 23.5 @ {odd})")
+        print("     value: бери, если коэф бука ВЫШЕ нашего @ на той же линии")
+
+
+def rated_upcoming(n: int = 12) -> None:
+    import bo3_client as bo3
+    conn = _conn()
+    pool = active_pool(conn)
+    rated = {r[0] for r in conn.execute(
+        "SELECT team_id FROM map_ratings GROUP BY team_id HAVING SUM(games) >= 8")}
+    conn.close()
+    raw = bo3._get("/matches", {
+        "filter[matches.status][eq]": "upcoming",
+        "filter[matches.discipline_id][eq]": 1, "sort": "start_date",
+        "page[offset]": 0, "page[limit]": 60,
+    }).get("results", [])
+    shown = 0
+    print("upcoming matches BOTH teams rated (≥8 map games):")
+    for m in raw:
+        t1, t2 = m.get("team1_id"), m.get("team2_id")
+        if t1 in rated and t2 in rated:
+            print(f"  {m.get('slug')}  | Bo{m.get('bo_type')} | {m.get('start_date')}")
+            shown += 1
+            if shown >= n:
+                break
+    if not shown:
+        print("  (none yet — backfill still shallow; try again as data grows)")
+
+
+def main() -> None:
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "upcoming"
+    if cmd == "predict":
+        _print(predict(int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4])))
+    elif cmd == "match":
+        import bo3_client as bo3
+        m = bo3.get_match(sys.argv[2])
+        _print(predict(m["team1_id"], m["team2_id"], m.get("bo_type") or 3))
+    else:
+        rated_upcoming()
+
+
+if __name__ == "__main__":
+    main()

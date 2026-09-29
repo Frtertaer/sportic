@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 live scenario monitor (veto-locked outcome push)
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 -u live_monitor.py
+TimeoutStartSec=300

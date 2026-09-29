@@ -1,0 +1,46 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# --- Secrets, credentials, sessions ---
+.env
+*.env
+*.env.*
+.env.*
+winline_auth.json
+*ЛОГИН*
+ЛОГИН*
+*.pem
+*.key
+*_key.txt
+id_rsa*
+credentials*
+
+# --- Databases ---
+*.db
+*.db-*
+*.db.*
+*.sqlite*
+chromadb_data/
+
+# --- Large data dumps (prod snapshots / histories) ---
+from-server/**/data/
+*.jsonl
+
+# --- Agent / tool local state ---
+.claude/
+.remember/
+.local-backup/
+.jev-trace.json
+jev.request.json
+
+# --- Chat transcript backups ---
+from-desktop/claude-backup/
+from-desktop/codex-chat-backup-*/
+
+# --- Bookmaker account screenshots ---
+winline_event.png

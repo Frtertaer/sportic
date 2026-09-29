@@ -1,0 +1,11 @@
+[Unit]
+Description=CS2 winline odds scraper -> data/winline_odds.json (+refresh pending bets)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python winline_odds.py
+ExecStartPost=/usr/bin/python3 refresh_odds.py
+ExecStartPost=-/opt/kwork-monitor/.venv/bin/python odds_history.py
+TimeoutStartSec=240

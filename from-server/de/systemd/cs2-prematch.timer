@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 pre-match scan every 60 min
+[Timer]
+OnCalendar=*-*-* *:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

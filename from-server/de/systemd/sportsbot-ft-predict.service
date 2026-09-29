@@ -1,0 +1,10 @@
+[Unit]
+Description=SportsBot forward-test: log quality (+EV) picks for upcoming fixtures
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/sportsbot
+ExecStart=/opt/sportsbot/.venv/bin/python scripts/forward_test.py --auto --days 3
+ExecStartPost=/opt/sportsbot/.venv/bin/python scripts/ft_notify.py
+TimeoutStartSec=5400

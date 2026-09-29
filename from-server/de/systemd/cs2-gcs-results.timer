@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh g-cs.ru results every 25 min
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=25min
+[Install]
+WantedBy=timers.target

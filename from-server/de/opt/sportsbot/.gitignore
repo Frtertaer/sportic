@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+sportsbot.db
+*.db-wal
+*.db-shm
+.claude/
+chromadb_data/

@@ -1,0 +1,7 @@
+[Unit]
+Description=Scan winline line movement every 12 min
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=12min
+[Install]
+WantedBy=timers.target

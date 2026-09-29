@@ -1,0 +1,670 @@
+# Source SHA256: web_ui_v2.py=95bb02c7c05524b0d6db700bc6b9d0402943bb85a6f61b23c9e22a8f2b6b97e5 web_ui_v3.py=b57850470635e9fa7359eb4199594b3060df09cdfa6f2222f7259ddc0a2f41d9 web_ui_v4.py=ce582b315f81ddeebe90d10889cd61cc18355d55618cc95afd56eb5a6322b4dc
+"""Generated standalone Atlantic Broadcast v4 renderer. Do not edit by hand."""
+from __future__ import annotations
+import html
+import json
+import math
+import re
+import time
+from datetime import date, timedelta
+HEAD = '<!doctype html><html lang="ru"><head><meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<meta http-equiv="refresh" content="30">\n<meta name="color-scheme" content="dark"><meta name="theme-color" content="#080c12">\n<title>Analyst — спортивная аналитика</title><style>\n:root{color-scheme:dark;--bg:#080c12;--bg2:#0c121c;--surf:#101722;--raised:#151f2d;--soft:#192536;\n--line:#263448;--line2:#31425c;--txt:#f5f7fb;--mut:#a8b3c4;--faint:#738198;--blue:#5b8cff;\n--blue2:#70b7ff;--green:#32d583;--red:#ff6677;--amber:#f6c453;--violet:#a78bfa;\n--shadow:0 18px 50px rgba(0,0,0,.26);--r:16px;--r-sm:12px}\n*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-width:320px;background:\nradial-gradient(900px 500px at 14% -10%,rgba(91,140,255,.12),transparent 60%),\nradial-gradient(800px 480px at 94% 8%,rgba(50,213,131,.07),transparent 62%),var(--bg);\ncolor:var(--txt);font:15px/1.5 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;\n-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}\na{color:inherit}.skip{position:fixed;left:16px;top:-80px;z-index:99;background:var(--txt);color:var(--bg);padding:10px 14px;border-radius:10px}\n.skip:focus{top:12px}.wrap{width:min(1320px,calc(100% - 48px));margin:0 auto;padding:18px 0 88px}\n.top{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:8px 0 14px}\n.brand{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:18px;font-weight:760;letter-spacing:-.3px}\n.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:linear-gradient(145deg,var(--blue),#765cff);box-shadow:0 9px 22px rgba(91,140,255,.22);font-size:15px}.brand-copy{display:grid;line-height:1.15}.brand-copy small{margin-top:4px;color:var(--faint);font-size:11px;font-weight:600;letter-spacing:.04em}\n.top-status{display:flex;align-items:center;gap:10px}.clock,.health{display:inline-flex;align-items:center;gap:8px;min-height:34px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--mut);background:rgba(16,23,34,.72);font-size:12px}\n.live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(50,213,131,.09)}\n.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;margin:0 -10px 24px;padding:9px 10px;background:rgba(8,12,18,.86);backdrop-filter:blur(16px);border-bottom:1px solid rgba(38,52,72,.7)}\n.tab{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 16px;border-radius:11px;color:var(--mut);text-decoration:none;font-size:14px;font-weight:680;transition:color .15s,background .15s}\n.tab:hover{color:var(--txt);background:var(--surf)}.tab.active{color:var(--txt);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line2)}\n.sport-dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}.active .sport-dot{background:var(--blue);box-shadow:0 0 0 4px rgba(91,140,255,.12)}\n.page-intro{display:flex;justify-content:space-between;gap:24px;align-items:end;margin:0 0 18px}.eyebrow{margin:0 0 5px;color:var(--blue2);font-size:12px;font-weight:760;letter-spacing:.08em;text-transform:uppercase}.page-intro h1{margin:0;font-size:clamp(24px,3vw,34px);line-height:1.14;letter-spacing:-.035em}.tagline{max-width:680px;margin:8px 0 0;color:var(--mut);font-size:14px}.freshness{color:var(--faint);font-size:12px;white-space:nowrap}\n.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 28px}.stat{position:relative;min-height:116px;padding:18px 19px;background:linear-gradient(160deg,var(--raised),var(--surf));border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.stat::after{content:"";position:absolute;inset:auto -20px -38px auto;width:100px;height:100px;border-radius:50%;background:var(--glow,rgba(91,140,255,.09));filter:blur(4px)}.stat .k{position:relative;z-index:1;color:var(--mut);font-size:12px;font-weight:680}.stat .v{position:relative;z-index:1;margin-top:7px;font-size:30px;line-height:1;font-weight:780;letter-spacing:-.045em}.stat .s{position:relative;z-index:1;margin-top:8px;color:var(--faint);font-size:12px}.stat.profit{--glow:rgba(50,213,131,.13)}.stat.alerts{--glow:rgba(255,102,119,.11)}\n.primary-grid,.secondary-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:18px;align-items:start}.primary-grid{margin-bottom:30px}.secondary-grid{margin-top:30px}.side-stack{display:grid;gap:16px}\n.panel{background:rgba(16,23,34,.9);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel-pad{padding:20px}.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.section-head h2,.sect{margin:0;color:var(--txt);font-size:18px;line-height:1.3;font-weight:730;letter-spacing:-.018em;text-transform:none}.section-head p{margin:5px 0 0;color:var(--mut);font-size:13px}.count{display:inline-flex;align-items:center;justify-content:center;min-width:27px;height:27px;border-radius:999px;background:rgba(91,140,255,.13);color:var(--blue2);font-size:12px;font-weight:760}\n.signals{display:grid;gap:10px}.signal{position:relative;padding:18px 18px 16px;background:linear-gradient(135deg,rgba(21,31,45,.98),rgba(16,23,34,.98));border:1px solid var(--line);border-radius:14px;overflow:hidden}.signal::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--tone,var(--green))}.signal.live-signal{--tone:var(--red)}.signal.anti{--tone:var(--violet)}.signal-head,.mrow{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.signal-kicker{display:flex;align-items:center;gap:8px;margin-bottom:4px;color:var(--faint);font-size:12px}.signal h3,.team{margin:0;font-size:16px;line-height:1.35;font-weight:720;overflow-wrap:anywhere}.badge{display:inline-flex;align-items:center;gap:6px;min-height:25px;padding:4px 9px;border-radius:999px;white-space:nowrap;font-size:11px;font-weight:740}.b-live{color:var(--red);background:rgba(255,102,119,.12)}.b-ok,.b-val{color:var(--green);background:rgba(50,213,131,.11)}.b-warn,.b-md{color:var(--amber);background:rgba(246,196,83,.11)}.b-hi{color:var(--red);background:rgba(255,102,119,.11)}.b-neutral{color:var(--blue2);background:rgba(91,140,255,.12)}\n.pick-main{display:flex;align-items:baseline;gap:9px;margin:14px 0 13px}.pick-main strong{font-size:22px;line-height:1.2;letter-spacing:-.025em}.pick-main span{color:var(--mut);font-size:13px}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.metric{padding:9px 10px;border-radius:10px;background:rgba(25,37,54,.7)}.metric span{display:block;color:var(--faint);font-size:11px}.metric b{display:block;margin-top:2px;font-size:14px}.signal-foot{display:flex;justify-content:space-between;gap:14px;margin-top:12px;padding-top:11px;border-top:1px solid rgba(38,52,72,.7);color:var(--faint);font-size:12px}.source{display:inline-flex;align-items:center;gap:6px}.source::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}.source.risk::before{background:var(--red)}.source.neutral::before{background:var(--amber)}\n.status-card{padding:19px}.status-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.status-line strong{font-size:16px}.status-good{color:var(--green)}.strategy-list{display:grid;gap:2px}.strategy{padding:12px 0;border-top:1px solid rgba(38,52,72,.65)}.strategy:first-child{border-top:0}.strategy-top{display:flex;justify-content:space-between;gap:12px;font-size:13px}.strategy-top b{font-size:13px}.strategy-meta{display:flex;gap:10px;margin-top:4px;color:var(--faint);font-size:11px}.method{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}.method summary{cursor:pointer;color:var(--mut);font-size:13px;font-weight:650}.method p{color:var(--faint);font-size:12px}\n.full-section{margin-top:30px}.live-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:16px;margin:10px 0}.card.val{border-color:rgba(50,213,131,.36);background:linear-gradient(135deg,rgba(50,213,131,.05),var(--surf) 34%)}.live-card{margin:0;padding:17px;background:linear-gradient(145deg,var(--raised),var(--surf))}.match-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;color:var(--faint);font-size:12px}.prob-labels{display:flex;justify-content:space-between;gap:16px;margin-top:16px;font-size:12px;overflow-wrap:anywhere}.prob-labels b{font-size:13px}.probbar{display:flex;height:8px;margin:7px 0 0;border-radius:999px;overflow:hidden;background:var(--soft)}.probbar .a{flex:0 0 var(--pa,50%);width:var(--pa,50%);padding:0;background:linear-gradient(90deg,var(--blue),var(--blue2))}.probbar .b{flex:0 0 calc(100% - var(--pa,50%));width:calc(100% - var(--pa,50%));padding:0;background:#2a3547}.pick{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:13px;padding:10px 12px;border-radius:10px;background:rgba(91,140,255,.07);border:1px solid rgba(91,140,255,.2)}.pick b{font-size:14px}.mut{color:var(--mut);font-size:13px}.pos{color:var(--green)}.neg{color:var(--red)}.blu{color:var(--blue2)}.amb{color:var(--amber)}\n.line-score{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.line-score .metric{padding:12px}.line-score .metric b{font-size:17px}.empty{padding:22px;text-align:center;color:var(--mut);background:rgba(16,23,34,.7);border:1px dashed var(--line2);border-radius:13px;font-size:13px}.board-list{display:grid;gap:9px}.board-card{padding:15px;border:1px solid var(--line);border-radius:13px;background:rgba(21,31,45,.72)}.board-top{display:flex;justify-content:space-between;gap:14px}.board-title{font-weight:710;overflow-wrap:anywhere}.board-time{margin-top:3px;color:var(--faint);font-size:11px}.board-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:11px}.board-metrics .metric{padding:8px}.board-action{margin-top:10px;color:var(--green);font-weight:700;font-size:13px}.news-note{margin-top:9px;color:var(--mut);font-size:12px;overflow-wrap:anywhere}\n.calibration{margin-top:30px}.calib-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.calib{padding:15px;border-radius:13px;background:var(--raised);border:1px solid var(--line)}.calib .lab{display:flex;justify-content:space-between;gap:10px;font-size:12px}.calib .lab b{font-size:13px}.bar{position:relative;height:9px;margin:13px 0 9px;background:#293548;border-radius:999px;overflow:visible}.bar .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:999px}.bar .mark{position:absolute;top:-4px;width:3px;height:17px;border-radius:2px;background:var(--amber);box-shadow:0 0 0 3px rgba(246,196,83,.1)}.calib-legend{display:flex;justify-content:space-between;color:var(--faint);font-size:11px}\n.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.strat{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:16px}.strat h3{margin:0;font-size:15px}.strat .desc{color:var(--mut);font-size:12px}.strat .big{display:flex;align-items:baseline;gap:10px}.strat .wr{font-size:27px;font-weight:760}.strat .meta{display:flex;gap:12px;color:var(--mut);font-size:12px}.three{display:flex;gap:7px;margin:10px 0}.three>div{flex:1;text-align:center;background:var(--soft);border-radius:9px;padding:7px}.three b{display:block;font-size:15px}.brand .dot{color:var(--green)}.sect{display:flex;align-items:center;gap:10px;margin-top:28px;margin-bottom:12px;flex-wrap:wrap}.sect .mut{font-weight:400}.foot{margin-top:34px;padding:20px;border-top:1px solid var(--line);color:var(--faint);text-align:center;font-size:12px}.foot strong{color:var(--mut)}\n.mobile-nav{display:none}.risk-note{margin-top:18px;padding:13px 15px;border-radius:12px;background:rgba(246,196,83,.06);color:var(--mut);font-size:12px;border:1px solid rgba(246,196,83,.15)}\n:focus-visible{outline:2px solid #78a9ff;outline-offset:3px}\n@media(max-width:1020px){.wrap{width:min(100% - 32px,900px)}.primary-grid,.secondary-grid{grid-template-columns:1fr}.side-stack{grid-template-columns:repeat(2,minmax(0,1fr))}.calib-grid{grid-template-columns:1fr}.live-grid{grid-template-columns:1fr}}\n@media(max-width:700px){body{font-size:14px}.wrap{width:calc(100% - 24px);padding-bottom:100px}.top{min-height:52px}.brand-copy small,.health{display:none}.tabs{margin:0 -12px 18px;padding-left:12px;overflow:auto}.tab{min-width:112px}.page-intro{display:block}.freshness{display:block;margin-top:8px}.hero{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{min-height:102px;padding:14px}.stat .v{font-size:25px}.primary-grid,.secondary-grid{gap:12px}.panel-pad,.status-card{padding:15px}.side-stack{grid-template-columns:1fr}.signal-head,.mrow,.board-top{align-items:flex-start;flex-direction:column}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.signal-foot,.pick{align-items:flex-start;flex-direction:column}.live-grid{grid-template-columns:1fr}.board-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.mobile-nav{position:fixed;z-index:30;left:10px;right:10px;bottom:10px;display:grid;grid-template-columns:repeat(4,1fr);padding:7px;background:rgba(16,23,34,.94);border:1px solid var(--line2);border-radius:15px;backdrop-filter:blur(18px);box-shadow:var(--shadow)}.mobile-nav a{display:grid;place-items:center;min-height:43px;border-radius:9px;color:var(--mut);text-decoration:none;font-size:11px}.mobile-nav a:focus,.mobile-nav a:hover{background:var(--raised);color:var(--txt)}}\n@media(max-width:420px){.hero{grid-template-columns:1fr 1fr}.stat .s{font-size:11px}.board-metrics{grid-template-columns:1fr}.top-status .clock{padding:5px 8px}.pick-main{display:block}.pick-main strong{overflow-wrap:anywhere}.pick-main span{display:block;margin-top:4px}}\n@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}\n</style></head><body><a class="skip" href="#main">К содержанию</a><div class="wrap">'
+
+def _tabs(active: str) -> str:
+
+    def cls(x):
+        return 'tab active' if x == active else 'tab'
+    return f'''<nav class="tabs" aria-label="Вид спорта"><a href="/" class="{cls('cs2')}"{(' aria-current=page' if active == 'cs2' else '')}><span class=sport-dot aria-hidden=true></span>CS2</a><a href="/football" class="{cls('fb')}"{(' aria-current=page' if active == 'fb' else '')}><span class=sport-dot aria-hidden=true></span>Футбол</a></nav>'''
+
+def _sign(x):
+    return f'+{x}' if x >= 0 else f'{x}'
+
+def _dict(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+def _rows(value) -> list[dict]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, (list, tuple)) else []
+_GROK_RENDER = re.compile('<grok:render\\b.*?(?:</grok:render\\s*>|$)', flags=re.IGNORECASE | re.DOTALL)
+
+def _clean_display(value, limit: int=180) -> str:
+    """Sanitize provider text again at display time for already-persisted dirty rows."""
+    text = html.unescape(str(value or ''))
+    text = _GROK_RENDER.sub('', text)
+    text = re.sub('</?grok:[^>]*(?:>|$)', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub('^\\s*(?:grok:|\\[grok\\])\\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub('[`*]+', '', text)
+    text = ' '.join(text.split()).strip()
+    return text[:limit].rstrip()
+
+def _number(value, default: float=0.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    return number if math.isfinite(number) else default
+
+def _timestamp(value) -> float | None:
+    try:
+        number = float(value)
+        if not math.isfinite(number) or number <= 0:
+            return None
+        time.gmtime(number)
+        return number
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+
+def _pct(value, default: float=0.0) -> float:
+    return max(0.0, min(100.0, _number(value, default)))
+
+def _probability_pct(value) -> float:
+    number = _number(value)
+    return _pct(number * 100 if 0 <= number <= 1 else number)
+
+def _implied(odd) -> float:
+    price = _number(odd)
+    return round(100 / price, 1) if price > 1 else 0.0
+
+def _fmt(value, digits: int=1) -> str:
+    number = _number(value)
+    rendered = f'{number:.{digits}f}'
+    if '.' in rendered:
+        rendered = rendered.rstrip('0').rstrip('.')
+    return rendered or '0'
+
+def _news_view(value) -> tuple[str, str]:
+    cleaned = _clean_display(value)
+    match = re.match('^(RED|GREEN)\\s*:?\\s*(.*)$', cleaned, flags=re.IGNORECASE)
+    if match:
+        flag, reason = (match.group(1).upper(), match.group(2).strip(' -:.'))
+        if flag == 'RED':
+            return ('<span class="source risk">Обнаружен риск</span>', reason or 'Есть важная новость')
+        return ('<span class=source>Новости проверены</span>', '')
+    if not cleaned or cleaned.upper() == 'UNKNOWN':
+        return ('<span class="source neutral">Статус новостей неизвестен</span>', '')
+    return ('<span class="source neutral">Статус не подтверждён</span>', cleaned)
+
+def _start_label(value) -> str:
+    match = re.match('^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})', str(value or ''))
+    if not match:
+        return 'время уточняется'
+    _, month, day, hour, minute = match.groups()
+    return f'{day}.{month} · {hour}:{minute} UTC'
+
+def _steam_signal(sm: dict) -> str:
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    badge, note = _news_view(sm.get('news'))
+    note_html = f'<span>{e(note)}</span>' if note else '<span>рынок движется в ту же сторону</span>'
+    return f"""<article class="signal live-signal">\n<div class=signal-head><div><div class=signal-kicker>Движение линии · {e(sm.get('mode') or 'LIVE')}</div>\n<h3>{e(sm.get('t1') or '?')} vs {e(sm.get('t2') or '?')}</h3></div><span class="badge b-live">Срочно · сила {_fmt(sm.get('strength'), 0)}%</span></div>\n<div class=pick-main><strong>Ставка: {e(sm.get('side') or '?')} @ {_fmt(sm.get('entry'), 2)}</strong><span>линия {_fmt(sm.get('open'), 2)} → {_fmt(sm.get('entry'), 2)}</span></div>\n<div class=metric-grid><div class=metric><span>Открытие</span><b>{_fmt(sm.get('open'), 2)}</b></div>\n<div class=metric><span>Сейчас</span><b>{_fmt(sm.get('entry'), 2)}</b></div>\n<div class=metric><span>Сила движения</span><b>{_fmt(sm.get('strength'), 0)}%</b></div>\n<div class=metric><span>Режим</span><b>{e(sm.get('mode') or '—')}</b></div></div>\n<div class=signal-foot>{badge}{note_html}</div></article>"""
+
+def _total_signal(v: dict) -> str:
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    odd = _number(v.get('odd'))
+    model = _pct(v.get('p'))
+    market = _implied(odd)
+    edge = round(model - market, 1)
+    return f"""<article class=signal>\n<div class=signal-head><div><div class=signal-kicker>Тоталы раундов · прематч</div>\n<h3>{e(v.get('t1') or '?')} vs {e(v.get('t2') or '?')}</h3></div><span class="badge b-val">Преимущество {_sign(edge)} п.п.</span></div>\n<div class=pick-main><strong>{e(v.get('side') or '?')} {_fmt(v.get('line'))} @ {_fmt(odd, 2)}</strong><span>основной сценарий модели</span></div>\n<div class=metric-grid><div class=metric><span>Модель</span><b>{_fmt(model)}%</b></div>\n<div class=metric><span>Рынок</span><b>{_fmt(market)}%</b></div>\n<div class=metric><span>Разница</span><b class=pos>{_sign(edge)} п.п.</b></div>\n<div class=metric><span>Уверенность</span><b>{('высокая' if edge >= 8 else 'средняя')}</b></div></div>\n<div class=signal-foot><span class=source>Линия проверена</span><span>Winline · коэффициент {_fmt(odd, 2)}</span></div></article>"""
+
+def _prematch_signal(v: dict) -> str:
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    anti = v.get('kind') == 'anti'
+    odd = _number(v.get('odd'))
+    market = _implied(odd)
+    has_model_probability = v.get('p') not in (None, '')
+    model = _pct(v.get('p')) if has_model_probability else 0.0
+    edge = round(model - market, 1) if has_model_probability else round(_number(v.get('edge')), 1)
+    recommendation = f"{e(v.get('side') or '?')} берёт 1+ карту · Фора +1.5 @ {_fmt(odd, 2)}" if anti else f"Победа {e(v.get('side') or '?')} @ {_fmt(odd, 2)}"
+    if has_model_probability:
+        metrics = f"<div class=metric><span>Модель</span><b>{_fmt(model)}%</b></div><div class=metric><span>Рынок</span><b>{_fmt(market)}%</b></div><div class=metric><span>Разница</span><b class=pos>{_sign(edge)} п.п.</b></div><div class=metric><span>Уверенность</span><b>{('высокая' if edge >= 10 else 'средняя')}</b></div>"
+    else:
+        metrics = f'<div class=metric><span>Преимущество</span><b class=pos>{_sign(edge)} п.п.</b></div><div class=metric><span>Коэффициент</span><b>{_fmt(odd, 2)}</b></div><div class=metric><span>Тип сигнала</span><b>ML value</b></div><div class=metric><span>Вероятности</span><b>в карточке матча</b></div>'
+    return f"""<article class="signal{(' anti' if anti else '')}">\n<div class=signal-head><div><div class=signal-kicker>{('Анти-свип' if anti else 'Прематч value')}</div>\n<h3>{e(v.get('t1') or '?')} vs {e(v.get('t2') or '?')}</h3></div><span class="badge {('b-neutral' if anti else 'b-val')}">Преимущество {_sign(edge)} п.п.</span></div>\n<div class=pick-main><strong>{recommendation}</strong><span>{('защита от 0:2' if anti else 'рынок недооценивает сторону')}</span></div>\n<div class=metric-grid>{metrics}</div>\n<div class=signal-foot><span class=source>Модель согласована</span><span>Прематч · Bo3+</span></div></article>"""
+
+def _live_card(match: dict) -> str:
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    team1, team2 = (str(match.get('team1') or '?'), str(match.get('team2') or '?'))
+    probs = _dict(match.get('p_series'))
+    pa = _pct(_number(probs.get(team1), 0.5) * 100, 50)
+    pb = round(100 - pa, 1)
+    current = e(match.get('current') or '—')
+    current_map = e(match.get('cur_map') or 'карта уточняется')
+    rt = _dict(match.get('round_total'))
+    rtline = ''
+    if rt:
+        rtline = f"<div class=pick><span class=mut>Тотал {e(rt.get('map') or current_map)} · ожидание {_fmt(rt.get('exp'))}</span><b class=blu>{e(rt.get('side') or '?')} 21.5 @ {_fmt(rt.get('fair'), 2)}</b></div>"
+    return f'''<article class="card live-card"><div class=mrow><h3 class=team>{e(team1)} vs {e(team2)}</h3><span class="badge b-live">LIVE · {current}</span></div>\n<div class=match-meta><span>Bo{int(_number(match.get('bo'), 3))}</span><span>{current_map}</span><span>{('решающая карта' if match.get('is_decider') else 'серия продолжается')}</span></div>\n<div class=prob-labels><span>{e(team1)} <b>{_fmt(pa)}%</b></span><span><b>{_fmt(pb)}%</b> {e(team2)}</span></div>\n<div class=probbar role=progressbar aria-label="Вероятность победы {e(team1)}" aria-valuemin=0 aria-valuemax=100 aria-valuenow="{_fmt(pa)}" style="--pa:{_fmt(pa)}%"><span class=a></span><span class=b></span></div>{rtline}</article>'''
+
+def _board_card(row: dict) -> str:
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    pf = _pct(_number(row.get('pf_fav')) * 100)
+    pm = _pct(_number(row.get('pm_fav')) * 100)
+    favorite = str(row.get('fav') or '')
+    bet_side = str(row.get('bet_side') or '')
+    if bet_side and favorite and (bet_side.casefold() != favorite.casefold()):
+        shown_model, shown_market, assessed_side = (100 - pm, 100 - pf, bet_side)
+    else:
+        shown_model, shown_market, assessed_side = (pm, pf, favorite or bet_side)
+    diff = round(shown_model - shown_market, 1)
+    verdict = str(row.get('verdict') or 'PASS').upper()
+    badge = '<span class="badge b-val">Есть value</span>' if verdict == 'VALUE' else '<span class="badge b-warn">Нужна осторожность</span>' if verdict == 'SUSPICIOUS' else '<span class="badge b-neutral">Наблюдаем</span>'
+    structured_flag = _clean_display(row.get('news_flag'))
+    structured_reason = _clean_display(row.get('news_reason'))
+    news_value = f'{structured_flag}: {structured_reason}'.strip(' :') if structured_flag else row.get('news')
+    source, note = _news_view(news_value)
+    action = f"<div class=board-action>Ставка: {e(row.get('bet_side') or '?')} @ {_fmt(row.get('bet_odd'), 2)}</div>" if row.get('bet_side') else ''
+    anti = row.get('antisweep') if isinstance(row.get('antisweep'), (list, tuple)) else ['', 0]
+    anti_pct = _pct(_number(anti[1] if len(anti) > 1 else 0) * 100)
+    anti_html = f'<div class=news-note>Анти-свип: {e(anti[0])} возьмёт минимум карту · {_fmt(anti_pct)}%</div>' if anti_pct >= 78 else ''
+    note_html = f'<div class=news-note>{e(note)}</div>' if note else ''
+    return f'''<article class=board-card><div class=board-top><div><div class=board-title>{e(row.get('t1') or '?')} vs {e(row.get('t2') or '?')}</div>\n<div class=board-time>{_start_label(row.get('start_date'))} · Bo{int(_number(row.get('bo'), 3))}</div></div>{badge}</div>\n<div class=board-metrics><div class=metric><span>Модель</span><b>{_fmt(shown_model)}%</b></div><div class=metric><span>Букмекер</span><b>{_fmt(shown_market)}%</b></div>\n<div class=metric><span>Разница</span><b class="{('pos' if diff >= 0 else 'neg')}">{_sign(diff)} п.п.</b></div></div>{action}{anti_html}\n<div class=signal-foot>{source}<span>{e(assessed_side)} · оцениваемая сторона</span></div>{note_html}</article>'''
+
+def _calibration_card(item: dict) -> str:
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    wr = _pct(item.get('winrate'))
+    expected = _pct(item.get('avg_p'))
+    gap = round(wr - expected, 1)
+    ok = abs(gap) <= 8
+    return f"""<article class=calib><div class=lab><b>{e(item.get('label') or 'Метрика')}</b><span class="badge {('b-ok' if ok else 'b-warn')}">{('Калибрована' if ok else 'Есть отклонение')}</span></div>\n<div class=bar aria-hidden=true><div class=fill style="width:{_fmt(wr)}%"></div><div class=mark style="left:{_fmt(expected)}%"></div></div>\n<div class=calib-legend><span>факт {_fmt(wr)}%</span><span>модель {_fmt(expected)}%</span></div>\n<div class=news-note>{int(_number(item.get('n')))} ставок · разница {_sign(gap)} п.п.</div></article>"""
+
+def _render_cs2_v2(d: dict) -> str:
+    d = _dict(d)
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    generated = _timestamp(d.get('ts'))
+    if generated is None:
+        ts, age, fresh = ('—', None, 'время обновления неизвестно')
+    else:
+        ts = time.strftime('%H:%M', time.gmtime(generated))
+        age = max(0, int(time.time() - generated))
+        fresh = f'обновлено {age} сек назад' if age < 60 else f'обновлено {max(1, age // 60)} мин назад'
+    live, values = (_rows(d.get('live')), _rows(d.get('value')))
+    pmp, board = (_rows(d.get('prematch_picks')), _rows(d.get('prematch_board')))
+    steam = _dict(d.get('steam'))
+    steam_live = _rows(steam.get('live'))
+    steam_track = _dict(steam.get('track'))
+    track = _dict(d.get('track'))
+    strategies = [('LIVE лаг-линии', _dict(d.get('livelag'))), ('Прематч value', _dict(d.get('prematch'))), ('Тоталы раундов', _dict(d.get('roi')))]
+    settled = int(sum((_number(item.get('n')) for _, item in strategies)))
+    won = int(sum((_number(item.get('wins')) for _, item in strategies)))
+    pending = int(sum((_number(item.get('pending')) for _, item in strategies)))
+    profit = round(sum((_number(item.get('pl')) for _, item in strategies)), 2)
+    winrate = round(won / settled * 100) if settled else 0
+    roi = round(profit / settled * 100, 1) if settled else 0
+    active = len(values) + len(pmp) + len(steam_live)
+    P = [HEAD]
+    P.append(f'<header class=top><a class=brand href="/" aria-label="Analyst — главная"><span class=brand-mark aria-hidden=true>A</span>\n<span class=brand-copy>Analyst<small>CS2 decision dashboard</small></span></a>\n<div class=top-status><span class=health><span class=live></span>{e(fresh)}</span><span class=clock>{ts} UTC</span></div></header>')
+    P.append(_tabs('cs2'))
+    P.append(f"""<main id=main><section class=page-intro aria-labelledby=page-title><div><p class=eyebrow>Обзор</p>\n<h1 id=page-title>Сигналы и состояние модели</h1><p class=tagline>Сначала — что заслуживает внимания прямо сейчас. Затем live-матчи, рынок и проверка точности.</p></div>\n<span class=freshness>Forward-test · без ретроспективной подгонки</span></section>\n<section class=hero aria-label="Ключевые показатели">\n<article class="stat profit"><div class=k>Прибыль</div><div class="v {('pos' if profit >= 0 else 'neg')}">{_sign(profit)}u</div><div class=s>{settled} рассчитанных ставок</div></article>\n<article class=stat><div class=k>ROI</div><div class="v {('pos' if roi >= 0 else 'neg')}">{_sign(roi)}%</div><div class=s>за весь forward-test</div></article>\n<article class=stat><div class=k>Проходимость</div><div class=v>{winrate}%</div><div class=s>{won} выиграно · {pending} ждут</div></article>\n<article class="stat alerts"><div class=k>Активные сигналы</div><div class="v blu">{active}</div><div class=s>{len(live)} live-матча сейчас</div></article></section>""")
+    P.append(f'<section class=primary-grid><div class="panel panel-pad" id=signals><div class=section-head><div><h2>Сигналы сейчас</h2>\n<p>Отсортированы по срочности и практической ценности</p></div><span class=count aria-label="Активных сигналов: {active}">{active}</span></div><div class=signals>')
+    P.extend((_steam_signal(item) for item in steam_live))
+    P.extend((_total_signal(item) for item in values))
+    P.extend((_prematch_signal(item) for item in pmp))
+    if not active:
+        P.append('<div class=empty>Сейчас нет сигналов с достаточным преимуществом. Модель ждёт качественную линию.</div>')
+    P.append('</div></div><aside class=side-stack>')
+    status_ok = age is not None and age < 180
+    P.append(f"""<section class="panel status-card" aria-labelledby=status-title><div class=status-line><div><div class=signal-kicker>Состояние системы</div>\n<strong id=status-title>{('Данные актуальны' if status_ok else 'Нужно обновление')}</strong></div><span class="badge {('b-ok' if status_ok else 'b-warn')}">{('В норме' if status_ok else 'Устарело')}</span></div>\n<div class=line-score><div class=metric><span>Live-матчи</span><b>{len(live)}</b></div><div class=metric><span>В расчёте</span><b>{pending}</b></div></div></section>""")
+    P.append('<section class="panel status-card" aria-labelledby=strategy-title><div class=section-head><div><h2 id=strategy-title>Стратегии</h2><p>Компактная статистика</p></div></div><div class=strategy-list>')
+    for name, stats in strategies:
+        sroi = _number(stats.get('roi'))
+        swr = _number(stats.get('winrate'))
+        P.append(f'''<div class=strategy><div class=strategy-top><span>{e(name)}</span><b class="{('pos' if sroi >= 0 else 'neg')}">ROI {_sign(sroi)}%</b></div>\n<div class=strategy-meta><span>{_fmt(swr, 0)}% проходимость</span><span>{int(_number(stats.get('n')))} ставок</span><span>{int(_number(stats.get('pending')))} ждут</span></div></div>''')
+    P.append('</div><details class=method><summary>Как читать показатели</summary><p>Проходимость — доля выигранных рассчитанных ставок. ROI — прибыль на одну ставку. Сигнал не гарантирует исход.</p></details></section></aside></section>')
+    P.append(f'<section class=full-section id=matches><div class=section-head><div><h2>Live-матчи</h2><p>Счёт серии и текущая вероятность победы</p></div><span class=count>{len(live)}</span></div><div class=live-grid>')
+    if live:
+        P.extend((_live_card(item) for item in live))
+    else:
+        P.append('<div class=empty>Сейчас нет live-матчей.</div>')
+    P.append('</div></section>')
+    P.append(f'<section class=secondary-grid><div class="panel panel-pad" id=upcoming><div class=section-head><div><h2>Ближайшие матчи</h2>\n<p>Модель, букмекер и проверка новостей в одной строке</p></div><span class=count>{len(board)}</span></div><div class=board-list>')
+    if board:
+        P.extend((_board_card(item) for item in board))
+    else:
+        P.append('<div class=empty>Ближайшие матчи пока не рассчитаны.</div>')
+    P.append('</div></div><aside class=side-stack>')
+    line_roi = _number(steam_track.get('roi'))
+    line_n = int(_number(steam_track.get('n')))
+    P.append(f'''<section class="panel status-card" id=market><div class=section-head><div><h2>Движение линии</h2><p>История стратегии «следуй за рынком»</p></div></div>\n<div class=line-score><div class=metric><span>Сыграно</span><b>{line_n}</b></div><div class=metric><span>Победы</span><b>{int(_number(steam_track.get('wins')))}</b></div>\n<div class=metric><span>Проходимость</span><b>{_fmt(steam_track.get('winrate'), 0)}%</b></div><div class=metric><span>ROI</span><b class="{('pos' if line_roi >= 0 else 'neg')}">{_sign(line_roi)}%</b></div></div>\n<div class=risk-note>{int(_number(steam_track.get('pending')))} сигналов ждут расчёта. Красный ROI — повод снизить вес стратегии, а не скрывать результат.</div></section>\n<section class="panel status-card"><div class=section-head><div><h2>Прозрачность</h2><p>Почему интерфейсу можно доверять</p></div></div>\n<div class=strategy-list><div class=strategy><div class=strategy-top><span>Результаты</span><b>forward-test</b></div><div class=strategy-meta><span>без удаления проигрышей</span></div></div>\n<div class=strategy><div class=strategy-top><span>Новости</span><b>структурный статус</b></div><div class=strategy-meta><span>без служебной разметки</span></div></div></div></section></aside></section>''')
+    calibration_rows = [_dict(track.get(key)) for key in ('series', 'map', 'total') if _dict(track.get(key))]
+    P.append('<section class="panel panel-pad calibration" id=accuracy><div class=section-head><div><h2>Точность модели</h2>\n<p>Синий — фактическая проходимость, жёлтая метка — ожидание модели</p></div></div><div class=calib-grid>')
+    if calibration_rows:
+        P.extend((_calibration_card(item) for item in calibration_rows))
+    else:
+        P.append('<div class=empty>Данные калибровки ещё копятся.</div>')
+    P.append('</div></section><div class=risk-note><strong>Важно:</strong> вероятности и коэффициенты не гарантируют результат. Используйте фиксированный размер ставки и не увеличивайте риск после проигрыша.</div>\n</main><nav class=mobile-nav aria-label="Быстрая навигация"><a href="#main">Обзор</a><a href="#signals">Сигналы</a><a href="#matches">Матчи</a><a href="#accuracy">Точность</a></nav>\n<footer class=foot><strong>Analyst</strong> · данные обновляются автоматически · все результаты сохраняются в forward-test</footer></div></body></html>')
+    return '\n'.join(P)
+
+def render(d: dict) -> str:
+    e = html.escape
+    ts = time.strftime('%H:%M', time.localtime(d['ts']))
+    strats = [('livelag', '⚡', 'LIVE лаг-линии', 'Ставит, когда исход карты почти решён (счёт 11-4), но бук не успел обновить live-коэффициент. Ловим задержку линии.', d['livelag']), ('prematch', '🔮', 'Пре-матч аномалии', 'За часы до матча ищет странные коэффициенты (модель против линии — возможные договорняки) и находит value.', d['prematch']), ('totals', '🎲', 'Тоталы раундов', 'Наш калиброванный расчёт тотала раундов карты против линии winline. Ставим только при реальном крае.', d['roi'])]
+    tot_n = sum((s[4]['n'] for s in strats))
+    tot_pl = round(sum((s[4]['pl'] for s in strats)), 2)
+    tot_w = sum((s[4]['wins'] for s in strats))
+    tot_wr = round(tot_w / tot_n * 100) if tot_n else 0
+    tot_roi = round(tot_pl / tot_n * 100, 1) if tot_n else 0
+    pend = sum((s[4]['pending'] for s in strats))
+    roicls = 'pos' if tot_roi >= 0 else 'neg'
+    P = [HEAD]
+    P.append(f'<div class=top><div class=brand>🎯 CS2 <span class=dot>Analyst</span></div>\n<div class=clock><span class=live></span>{ts} UTC</div></div>')
+    P.append(_tabs('cs2'))
+    P.append(f"""<div class=hero>\n<div class=stat><div class=k>Всего ставок</div><div class=v>{tot_n}</div><div class=s>+{pend} ждут исхода</div></div>\n<div class=stat><div class=k>Винрейт</div><div class="v pos">{tot_wr}%</div><div class=s>{tot_w} из {tot_n} зашло</div></div>\n<div class=stat><div class=k>ROI</div><div class="v {roicls}">{_sign(tot_roi)}%</div><div class=s>{_sign(tot_pl)} ед. прибыли</div></div>\n<div class=stat><div class=k>Сейчас</div><div class="v blu">{len(d['live'])}</div><div class=s>{len(d['value'])} value-пик</div></div>\n</div>""")
+    P.append('<div class=sect>💰 Стратегии</div><div class=grid>')
+    accents = {'livelag': 'var(--amb)', 'prematch': 'var(--vio)', 'totals': 'var(--grn)'}
+    for key, ic, name, desc, s in strats:
+        rc = 'pos' if s['roi'] >= 0 else 'neg'
+        wrcls = 'pos' if s['winrate'] >= 55 else ''
+        P.append(f"""<div class=strat style="--accent:{accents[key]}">\n<h3>{ic} {name}</h3><div class=desc>{desc}</div>\n<div class=big><span class="wr {wrcls}">{s['winrate']}%</span><span class="roi {rc}">ROI {_sign(s['roi'])}%</span></div>\n<div class=meta><span><b>{s['n']}</b> ставок</span><span><b>{_sign(s['pl'])}</b> ед.</span><span>{s['pending']} ждут</span></div>\n</div>""")
+    P.append('</div>')
+    P.append('<div class=sect>🔴 Идут сейчас</div>')
+    if not d['live']:
+        P.append('<div class=empty>Нет live-матчей прямо сейчас</div>')
+    for s in d['live']:
+        ps = s.get('p_series') or {}
+        names = list(ps.keys())
+        pa = int(round(ps.get(names[0], 0.5) * 100)) if names else 50
+        na = e(names[0]) if names else e(s.get('team1', '?'))
+        nb = e(names[1]) if len(names) > 1 else e(s.get('team2', '?'))
+        rt = s.get('round_total')
+        rtline = ''
+        if rt:
+            rtline = f"<div class=pick><span class=mut>🎲 тотал {e(rt['map'])} ~{rt['exp']:.0f}</span><b class=blu>{e(rt['side'])} 21.5 @ {rt['fair']}</b></div>"
+        cm = f" · карта {e(s['cur_map'])}" if s.get('cur_map') else ''
+        P.append(f"""<div class=card>\n<div class=mrow><span class=team>{e(s.get('team1', '?'))} vs {e(s.get('team2', '?'))}</span>\n<span class="badge b-live">LIVE · Bo{s.get('bo', '?')} {e(s.get('current', ''))}{cm}</span></div>\n<div class=probbar><span class=a style="flex:{max(pa, 12)}">{na} {pa}%</span><span class=b>{nb} {100 - pa}%</span></div>\n{rtline}</div>""")
+    st = d.get('steam') or {}
+    stl = st.get('live') or []
+    tr_ = st.get('track') or {}
+    P.append('<div class=sect>🔥 Движение линии winline <span class=mut style="text-transform:none;letter-spacing:0;font-weight:400">— стим/договорняки по всему борду</span></div>')
+    if tr_.get('n'):
+        P.append(f'''<div class=card><div class=mrow><span class=mut>трек «следуй за стимом»</span><b class="{('pos' if tr_['roi'] > 0 else '')}">{tr_['wins']}/{tr_['n']} = {tr_['winrate']}% · ROI {tr_['roi']:+}% · {tr_['pending']} ждут</b></div></div>''')
+    else:
+        P.append(f"<div class=card><span class=mut>трек копится — стимов сыграно 0, ждут {tr_.get('pending', 0)}</span></div>")
+    if not stl:
+        P.append('<div class=empty>Активных стимов сейчас нет — появятся здесь и в Telegram</div>')
+    for sm in stl:
+        tagl = '🚀 ранний' if sm['mode'] == 'EARLY' else '🔥 стим'
+        newsl = f"<div class=mrow><span class=mut>📰</span><span class=mut>{e(str(sm['news'])[:90])}</span></div>" if sm.get('news') else ''
+        P.append(f"""<div class="card val">\n<div class=mrow><span class=team>{e(str(sm['t1']))} vs {e(str(sm['t2']))}</span><span class="badge b-val">{tagl} · {sm['strength']}%</span></div>\n<div class=pick><b class=pos>ставь {e(str(sm['side']))} @ {sm['entry']}</b><span class=mut>двинули {sm['open']} → {sm['entry']}</span></div>\n{newsl}</div>""")
+    P.append('<div class=sect>🎯 Ставить сейчас</div>')
+    pmp = d.get('prematch_picks') or []
+    if not d['value'] and (not pmp):
+        P.append('<div class=empty>Сейчас нет value-пиков (ждём выгодные линии) — как появятся, придут сюда и в Telegram</div>')
+    for v in d['value']:
+        P.append(f"""<div class="card val">\n<div class=mrow><span class=team>{e(v['t1'])} vs {e(v['t2'])}</span><span class="badge b-val">🎲 тотал · край +{v['edge']}%</span></div>\n<div class=pick><b class=pos>{e(v['side'])} {v['line']} @ {v['odd']}</b><span class=mut>наша вероятность {v['p']}%</span></div>\n</div>""")
+    for v in [x for x in pmp if x.get('kind') != 'anti']:
+        P.append(f"""<div class="card val">\n<div class=mrow><span class=team>{e(v['t1'])} vs {e(v['t2'])}</span><span class="badge b-val">🔮 пре-матч · край +{v['edge']}%</span></div>\n<div class=pick><b class=pos>победа: {e(v['side'])} @ {v['odd']}</b><span class=mut>модель нашла value против линии</span></div>\n</div>""")
+    for v in [x for x in pmp if x.get('kind') == 'anti']:
+        P.append(f"""<div class="card val">\n<div class=mrow><span class=team>{e(v['t1'])} vs {e(v['t2'])}</span><span class="badge b-val">🛡 анти-свип · край +{v['edge']}%</span></div>\n<div class=pick><b class=pos>{e(v['side'])} берёт 1+ карту (Фора карт +1.5) @ {v['odd']}</b><span class=mut>наша вероятность {v.get('p', '?')}%</span></div>\n</div>""")
+    board = d.get('prematch_board') or []
+    if board:
+        P.append('<div class=sect>📋 Ближайшие матчи · оценка модели</div>')
+        for r in board:
+            pf = round((r.get('pf_fav') or 0) * 100)
+            pm = round((r.get('pm_fav') or 0) * 100)
+            asw = r.get('antisweep') or ['', 0]
+            aswp = round((asw[1] or 0) * 100)
+            vd = r.get('verdict')
+            badge = '<span class="badge b-val">✅ value</span>' if vd == 'VALUE' else '<span class="badge b-warn">⚠️ странный</span>' if vd == 'SUSPICIOUS' else ''
+            betline = f"<div class=pick><b class=pos>ставка: {e(str(r.get('bet_side')))} @ {r.get('bet_odd')}</b></div>" if r.get('bet_side') else ''
+            aline = f'<div class=mrow><span class=mut>🛡 {e(str(asw[0]))} берёт ≥1 карту</span><b class=pos>{aswp}%</b></div>' if aswp >= 78 else ''
+            ln = r.get('line')
+            lineb = ''
+            if ln and ln.get('dir') == 'confirm':
+                lineb = f"<div class=mrow><span class=mut>🔥 рынок подтверждает</span><b class=pos>деньги тоже на {e(str(ln['side']))}</b></div>"
+            elif ln and ln.get('dir') == 'against':
+                lineb = f"""<div class=mrow><span class=mut>⚠️ рынок против</span><b style="color:#ffc857">деньги на {e(str(ln['side']))} — осторожно</b></div>"""
+            newsb = f"<div class=mrow><span class=mut>📰</span><span class=mut>{e(str(r.get('news'))[:110])}</span></div>" if r.get('news') else ''
+            P.append(f"""<div class="card{(' val' if vd == 'VALUE' else '')}">\n<div class=mrow><span class=team>{e(str(r.get('t1')))} vs {e(str(r.get('t2')))}</span>{badge}</div>\n<div class=mrow><span class=mut>фаворит: {e(str(r.get('fav')))}</span><b>модель {pm}%{(' · бук ' + str(pf) + '%' if r.get('pf_fav') else '')}</b></div>\n{betline}{aline}{lineb}{newsb}</div>""")
+    P.append('<div class=sect>📊 Точность модели <span class=mut style="text-transform:none;letter-spacing:0;font-weight:400">— совпадает ли заявленная вероятность с реальностью</span></div>')
+    tr = d.get('track') or {}
+    if not tr:
+        P.append('<div class=empty>Данные калибровки копятся по live-матчам</div>')
+    else:
+        P.append('<div class=card>')
+        for mk in ('series', 'map', 'total'):
+            t = tr.get(mk)
+            if not t:
+                continue
+            ok = abs(t['gap']) <= 8
+            if ok:
+                badge = '<span class="badge b-ok">✓ калибр</span>'
+            elif t['gap'] < 0:
+                badge = f"""<span class="badge b-warn">завышает {abs(t['gap'])}pp</span>"""
+            else:
+                badge = f"""<span class="badge b-warn">занижает {t['gap']}pp</span>"""
+            wr = t['winrate']
+            P.append(f"""<div class=calib>\n<div class=lab><span><b>{e(t['label'])}</b> · {t['n']} ставок</span>{badge}</div>\n<div class=bar><div class=fill style="width:{wr}%"></div><div class=mark style="left:{t['avg_p']}%"></div></div>\n<div class=lab><span class=mut>реально {wr}% зашло</span><span class=mut>▾ модель ждёт {t['avg_p']}%</span></div>\n</div>""")
+            if mk != 'total':
+                P.append('<div style="height:14px"></div>')
+        P.append('</div>')
+    P.append('<div class=foot>⚙️ Все стратегии считаются автоматически по факту исходов · параметры самонастраиваются ежедневно<br>\nстранные матчи и value-пики приходят в Telegram · <span class=pos>зелёное = прибыль</span></div>\n</div></body></html>')
+    return '\n'.join(P)
+render_legacy = render
+render = _render_cs2_v2
+
+def _flean(r: dict) -> str:
+    """Model's calibrated 1X2 lean (varies per match, ~53% accurate) — shown instead of the O/U
+    rec, which is the model's weakest market (~43%). Returns 'П1 · Team · 57%' style."""
+    w1, dr, w2 = (r.get('prob_w1') or 0, r.get('prob_draw') or 0, r.get('prob_w2') or 0)
+    best = max(w1, dr, w2)
+    if best <= 0:
+        return '—'
+    if best == w1:
+        return f"П1 · {html.escape(str(r.get('team1', '?')))} · {w1:.0f}%"
+    if best == w2:
+        return f"П2 · {html.escape(str(r.get('team2', '?')))} · {w2:.0f}%"
+    return f'Ничья · {dr:.0f}%'
+
+def _fedge(r: dict):
+    """Model's real-EDGE pick for a match — Over 2.5 / BTTS (where it beats the book on ~7500 matches),
+    with the CALIBRATED true hit-rate. 1X2/Double-Chance omitted: high win-rate but no edge."""
+    po = _number(r.get('prob_over_2_5'))
+    pb = _number(r.get('prob_btts_yes'))
+    po = po * 100 if po <= 1.5 else po
+    pb = pb * 100 if pb <= 1.5 else pb
+    if po >= 52:
+        real = 57 if po < 55 else 66 if po < 60 else 73
+        return (f'ТБ 2.5 голов · модель {po:.0f}% → реально ~{real}%', True)
+    if pb >= 55:
+        real = 61 if pb < 60 else 69
+        return (f'Обе забьют · модель {pb:.0f}% → реально ~{real}%', True)
+    if po and po <= 45:
+        return (f'ТМ 2.5 голов · модель {100 - po:.0f}%', False)
+    return ('нет явного края в сильных рынках', False)
+
+def render_football(d: dict) -> str:
+    d = _dict(d)
+    e = lambda value: html.escape(str(value if value is not None else ''))
+    generated = _timestamp(d.get('ts'))
+    ts = time.strftime('%H:%M', time.gmtime(generated)) if generated is not None else '—'
+    f = _dict(d.get('football'))
+    acc = _dict(f.get('acc'))
+    pend = _rows(f.get('pending'))
+    resolved = _rows(f.get('resolved'))
+
+    def a(mk):
+        raw = acc.get(mk)
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            return (0, 0.0)
+        return (max(0, int(_number(raw[0]))), _probability_pct(raw[1]))
+    n1, p1 = a('1x2')
+    no, po = a('ou')
+    nb, pb = a('btts')
+    nval = sum((1 for r in pend if _parse_vb(r.get('value_bets'))))
+    _fm = _dict(d.get('football_markets'))
+    families = _rows(_fm.get('families'))
+    spots = _rows(_fm.get('spots'))
+    _topfam = str((families[0].get('name') if families else '—') or '—').split(' (')[0]
+    P = [HEAD]
+    P.append(f'<header class=top><a class=brand href="/football" aria-label="Analyst — футбол"><span class=brand-mark aria-hidden=true>⚽</span>\n<span class=brand-copy>Analyst<small>Football decision dashboard</small></span></a>\n<div class=top-status><span class=health><span class=live></span>модель активна</span><span class=clock>{ts} UTC</span></div></header>')
+    P.append(_tabs('fb'))
+    P.append('<main id=main><section class=page-intro aria-labelledby=football-title><div><p class=eyebrow>Футбол</p>\n<h1 id=football-title>Прогнозы и рыночное преимущество</h1><p class=tagline>Матмодель Elo + Пуассон/Dixon-Coles + ML-ансамбль. Показываем value относительно букмекерской линии.</p></div>\n<span class=freshness>Калибровка на исторической выборке</span></section>')
+    P.append(f"""<div class=hero>\n<div class=stat><div class=k>Прогнозов</div><div class=v>{max(0, int(_number(f.get('n'))))}</div><div class=s>{len(pend)} впереди · {len(resolved)} сыграно</div></div>\n<div class=stat><div class=k>Исход 1X2</div><div class="v {('pos' if p1 >= 50 else '')}">{_fmt(p1)}%</div><div class=s>по {n1} матчам</div></div>\n<div class=stat><div class=k>Топ-рынок</div><div class="v pos">{e(_topfam)}</div><div class=s>реальный край vs бук</div></div>\n<div class=stat><div class=k>Value-ставок</div><div class="v blu">{nval}</div><div class=s>в ближайших матчах</div></div>\n</div>""")
+    if families:
+        P.append('<div class=sect>📊 Где у модели РЕАЛЬНЫЙ край над букмекером <span class=mut style="text-transform:none;letter-spacing:0;font-weight:400">— по ~7500 матчам (винрейт врёт, край — нет)</span></div>')
+        P.append('<div class=card>')
+        for fam in families:
+            has_edge = bool(fam.get('edge'))
+            cls = 'pos' if has_edge else 'mut'
+            tag = '✓ есть край' if has_edge else '✗ нет края'
+            trust = _number(fam.get('trust'))
+            sample = max(0, int(_number(fam.get('n'))))
+            trust_label = f'+{_fmt(trust)}' if trust >= 0 else _fmt(trust)
+            P.append(f"<div class=mrow><span class=team>{e(fam.get('name') or '—')}</span><b class={cls}>{tag} · {trust_label} · {sample} матч.</b></div>")
+        P.append('</div>')
+    if spots:
+        P.append('<div class=sect>🎯 Где край реально заходит <span class=mut style="text-transform:none;letter-spacing:0;font-weight:400">— маркет + зона уверенности модели</span></div>')
+        P.append('<div class=card>')
+        for sp in spots:
+            bucket = e(sp.get('bucket') or '—')
+            sample = max(0, int(_number(sp.get('n'))))
+            delta = _number(sp.get('delta'))
+            real = _pct(sp.get('real'))
+            pred = _pct(sp.get('pred'))
+            delta_label = f'+{_fmt(delta)}' if delta >= 0 else _fmt(delta)
+            P.append(f"""<div class=calib>\n<div class=lab><span><b>{e(sp.get('market') or '—')}</b> · модель {bucket}% · {sample} матч.</span><span class="badge b-ok">{delta_label} п.п. края</span></div>\n<div class=bar><div class=fill style="width:{_fmt(real)}%"></div><div class=mark style="left:{_fmt(pred)}%"></div></div>\n<div class=lab><span class=mut>реально {_fmt(real)}% заходит</span><span class=mut>▾ бук ждёт ~{_fmt(pred)}%</span></div>\n</div><div style="height:10px"></div>""")
+        P.append('</div>')
+    P.append('<div class=sect>🎯 Предстоящие прогнозы</div>')
+    if not pend:
+        P.append('<div class=empty>Нет предстоящих прогнозов — бот считает по мере появления матчей</div>')
+    for r in pend[:14]:
+        risk = str(r.get('risk_level') or '').upper()
+        rb = '<span class="badge b-hi">риск высокий</span>' if risk == 'HIGH' else '<span class="badge b-md">риск средний</span>' if risk == 'MEDIUM' else ''
+        w1, dr, w2 = (_probability_pct(r.get('prob_w1')), _probability_pct(r.get('prob_draw')), _probability_pct(r.get('prob_w2')))
+        eg, eg_strong = _fedge(r)
+        vbs = _parse_vb(r.get('value_bets'))
+        vblock = ''.join((f'<div class=pick><b class=pos>💰 {e(v)}</b></div>' for v in vbs))
+        P.append(f'''<div class="card{(' val' if vbs else '')}">\n<div class=mrow><span class=team>{e(r.get('team1', '?'))} vs {e(r.get('team2', '?'))}</span>{rb}</div>\n<div class=three><div>П1<b>{_fmt(w1, 0)}%</b></div><div>X<b>{_fmt(dr, 0)}%</b></div><div>П2<b>{_fmt(w2, 0)}%</b></div></div>\n<div class=mrow><span class=mut>🎯 лучший рынок (край)</span><b class="{('pos' if eg_strong else 'mut')}">{e(eg)}</b></div>\n{vblock}</div>''')
+    P.append('<div class=sect>📜 Последние результаты</div>')
+    if not resolved:
+        P.append('<div class=empty>Пока нет сыгранных прогнозов</div>')
+    for r in resolved[:12]:
+        ar = str(r.get('actual_result') or '')
+        rw1, rdr, rw2 = (_probability_pct(r.get('prob_w1')), _probability_pct(r.get('prob_draw')), _probability_pct(r.get('prob_w2')))
+        argmax = 'W1' if rw1 >= rdr and rw1 >= rw2 else 'DRAW' if rdr >= rw2 else 'W2'
+        hit = ar in ('W1', 'DRAW', 'W2') and argmax == ar
+        mark = '<span class="badge b-ok">✓ 1X2</span>' if hit else '<span class="badge b-warn">✗ 1X2</span>'
+        P.append(f"<div class=card>\n<div class=mrow><span class=team>{e(r.get('team1', '?'))} vs {e(r.get('team2', '?'))}</span>{mark}</div>\n<div class=mrow><span class=mut>{e(str(r.get('top_rec') or '—'))}</span><b>счёт {e(str(r.get('actual_score') or '?'))}</b></div>\n</div>")
+    P.append('</main><footer class=foot>⚽ Матмодель + ИИ-разбор · value = где наша вероятность выше, чем даёт бук<br>\nпрогнозы приходят в Telegram · самообучение уроков включено</footer>\n</div></body></html>')
+    return '\n'.join(P)
+
+def _parse_vb(raw):
+    if not raw or raw in ('[]', ''):
+        return []
+    try:
+        v = json.loads(raw)
+        return [str(x) for x in v][:3] if isinstance(v, list) else [str(v)]
+    except Exception:
+        return [str(raw)[:80]]
+_render_football_v2 = render_football
+CS2_HEAD_V3 = '<!doctype html><html lang="ru"><head><meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<meta http-equiv="refresh" content="30">\n<meta name="color-scheme" content="dark"><meta name="theme-color" content="#0d1014">\n<title>CS2 Analyst — матчи и сигналы</title><style>\n:root{color-scheme:dark;--bg:#0d1014;--head:#11151a;--surface:#15191e;--row:#181d23;--row-hover:#1b2128;\n--line:#2a3037;--line-soft:#22282f;--text:#e6e9ed;--muted:#9aa4ae;--faint:#7b8793;\n--blue:#5a8db3;--blue-soft:#213240;--green:#63a87d;--red:#cf5a5f;--amber:#c7a45e;--radius:4px}\n*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-width:320px;background:var(--bg);color:var(--text);\nfont:13px/1.4 Arial,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}\na{color:inherit}.skip{position:fixed;left:12px;top:-60px;z-index:100;background:#fff;color:#111;padding:8px 10px;border-radius:2px}\n.skip:focus{top:10px}.site-head{height:54px;background:var(--head);border-bottom:1px solid var(--line)}\n.head-inner,.page{width:min(1180px,calc(100% - 32px));margin:0 auto}.head-inner{height:100%;display:flex;align-items:center;gap:28px}\n.wordmark{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;letter-spacing:.055em;text-decoration:none;white-space:nowrap}\n.wordmark-mark{width:7px;height:22px;background:var(--blue)}.main-nav{display:flex;height:100%;align-items:stretch;gap:2px}\n.main-nav a{display:flex;align-items:center;padding:0 12px;border-bottom:2px solid transparent;color:var(--muted);text-decoration:none;font-weight:600}\n.main-nav a:hover,.main-nav a.active{color:var(--text);border-bottom-color:var(--blue)}\n.head-fresh{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}.fresh-dot{display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--green)}.fresh-dot.stale{background:var(--red)}\n.page{padding:18px 0 48px}.page-title{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:12px}\n.page-title h1{margin:0;font-size:21px;line-height:1.2;letter-spacing:-.015em}.page-title p{margin:3px 0 0;color:var(--muted);font-size:12px}.utc{color:var(--faint);font-size:11px}\n.summary{display:flex;align-items:stretch;min-height:48px;margin-bottom:16px;border:1px solid var(--line);background:var(--surface)}\n.summary-item{display:flex;flex:1;align-items:baseline;gap:7px;min-width:0;padding:13px 18px;border-left:1px solid var(--line)}.summary-item:first-child{border-left:0}\n.summary-item b{font-size:16px}.summary-item span{color:var(--muted);font-size:11px}.summary-item .positive{color:var(--green)}\n.layout{display:grid;grid-template-columns:minmax(0,1fr) 286px;gap:16px;align-items:start}.main-feed{min-width:0}.rail{display:grid;gap:12px}\n.section{margin-bottom:18px}.section-bar{display:flex;align-items:center;justify-content:space-between;min-height:34px;padding:0 10px;background:#12171c;border:1px solid var(--line);border-bottom:0}\n.section-bar h2{margin:0;font-size:12px;letter-spacing:.045em;text-transform:uppercase}.section-bar span{color:var(--faint);font-size:11px}\n.column-head{display:grid;align-items:center;min-height:28px;padding:0 10px;background:var(--surface);border:1px solid var(--line);border-bottom:0;color:var(--faint);font-size:10px;font-weight:700;letter-spacing:.045em;text-transform:uppercase}\n.signal-cols{grid-template-columns:62px minmax(145px,1.25fr) minmax(150px,1.4fr) 60px 60px 68px 52px;column-gap:10px}\n.signal-list,.match-list,.board-list{border:1px solid var(--line);background:var(--surface)}\n.signal-row{display:grid;grid-template-columns:62px minmax(145px,1.25fr) minmax(150px,1.4fr) 60px 60px 68px 52px;column-gap:10px;align-items:center;min-height:66px;padding:8px 10px;border-left:2px solid var(--tone,var(--blue));border-bottom:1px solid var(--line-soft)}\n.signal-row:last-child,.match-row:last-child,.board-row:last-child{border-bottom:0}\n.tone-live{--tone:var(--red)}.tone-value{--tone:var(--green)}.tone-watch{--tone:var(--blue)}\n.type{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.type.live{color:var(--red)}.type.value{color:var(--green)}.type.watch{color:var(--blue)}\n.match-name{min-width:0}.match-name b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.sub{display:block;margin-top:3px;color:var(--faint);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.recommendation{min-width:0;font-weight:700;overflow-wrap:anywhere}.recommendation small{display:block;margin-top:3px;color:var(--faint);font-size:10px;font-weight:400}\n.num{text-align:right;white-space:nowrap}.num strong{font-size:12px}.mobile-prefix{display:none}.edge-pos{color:var(--green)}.edge-neg{color:var(--red)}.unknown{color:var(--faint)}\n.empty{padding:22px 12px;border:1px solid var(--line);color:var(--muted);text-align:center;background:var(--surface)}\n.match-cols{grid-template-columns:54px minmax(170px,1fr) 90px minmax(100px,.7fr) 118px;column-gap:12px}\n.match-row{display:grid;grid-template-columns:54px minmax(170px,1fr) 90px minmax(100px,.7fr) 118px;column-gap:12px;align-items:center;min-height:60px;padding:7px 10px;border-bottom:1px solid var(--line-soft)}\n.live-state{color:var(--red);font-size:10px;font-weight:800;letter-spacing:.04em}.team-stack{display:grid;gap:3px}.team-line{display:flex;justify-content:space-between;gap:8px;min-width:0}.team-line span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.team-line b{min-width:16px;text-align:right}.series-score{font-weight:700}\n.match-meta{color:var(--muted);font-size:11px}.prob{display:flex;align-items:center;justify-content:space-between;gap:8px}.prob b{font-size:12px}.prob-line{grid-column:5;height:3px;background:#303740}.prob-line span{display:block;height:100%;background:var(--blue);width:var(--prob,50%)}\n.board-cols{grid-template-columns:68px minmax(145px,1.25fr) minmax(126px,1fr) 54px 54px 65px 80px;column-gap:9px}\n.board-row{display:grid;grid-template-columns:68px minmax(145px,1.25fr) minmax(126px,1fr) 54px 54px 65px 80px;column-gap:9px;align-items:center;min-height:61px;padding:7px 10px;border-bottom:1px solid var(--line-soft)}\n.time-cell b{display:block;font-size:11px}.time-cell span{color:var(--faint);font-size:10px}.news{font-size:10px;font-weight:800;letter-spacing:.025em;text-align:right}.news.ok{color:var(--green)}.news.risk{color:var(--red)}.news.unknown{color:var(--amber)}\n.date-band{padding:6px 10px;border-bottom:1px solid var(--line);background:#12171c;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.035em;text-transform:uppercase}\n.rail-box{border:1px solid var(--line);background:var(--surface)}.rail-title{padding:9px 11px;border-bottom:1px solid var(--line);font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}\n.rail-body{padding:10px 11px}.status-list{display:grid;grid-template-columns:1fr auto;gap:7px 12px}.status-list span{color:var(--muted)}.status-list b{text-align:right}\n.strategy{padding:9px 0;border-bottom:1px solid var(--line-soft)}.strategy:last-child{border-bottom:0}.strategy-line{display:flex;justify-content:space-between;gap:8px}.strategy-line b{font-size:11px}.strategy-meta{margin-top:3px;color:var(--faint);font-size:10px}\n.cal-row{padding:8px 0;border-bottom:1px solid var(--line-soft)}.cal-row:last-child{border-bottom:0}.cal-top,.cal-bottom{display:flex;justify-content:space-between;gap:8px}.cal-top b{font-size:11px}.cal-bottom{margin-top:3px;color:var(--faint);font-size:10px}\n.cal-track{position:relative;height:3px;margin-top:6px;background:#303740}.cal-track span{display:block;height:100%;width:var(--actual,0%);background:var(--blue)}.cal-track i{position:absolute;top:-2px;left:var(--expected,0%);width:1px;height:7px;background:var(--amber)}\n.method summary{cursor:pointer;font-weight:700}.method p{margin:8px 0 0;color:var(--muted);font-size:11px}.footnote{padding-top:10px;border-top:1px solid var(--line);color:var(--faint);font-size:10px}\n:focus-visible{outline:2px solid #79a7c7;outline-offset:2px}\n@media(max-width:980px){.layout{grid-template-columns:1fr}.rail{grid-template-columns:repeat(3,minmax(0,1fr))}.rail .method{grid-column:1/-1}.head-inner,.page{width:min(100% - 24px,820px)}}\n@media(max-width:720px){.site-head{height:auto}.head-inner{min-height:52px;gap:14px;flex-wrap:wrap;padding:8px 0}.main-nav{order:3;width:100%;height:34px;justify-content:space-between;border-top:1px solid var(--line)}.main-nav a{padding:0 5px;font-size:11px}.head-fresh{font-size:10px}.page{padding-top:12px}.page-title{align-items:start}.page-title h1{font-size:18px}.page-title p,.utc{display:none}.summary{display:grid;grid-template-columns:repeat(2,1fr)}.summary-item{padding:10px 12px;border-top:1px solid var(--line)}.summary-item:nth-child(odd){border-left:0}.summary-item:nth-child(-n+2){border-top:0}\n.column-head{display:none}.signal-row{grid-template-columns:50px minmax(0,1fr) 62px;gap:5px 8px;min-height:72px;padding:8px}.signal-row .match-name{grid-column:2}.signal-row .recommendation{grid-column:1/3;grid-row:2}.signal-row .c-model,.signal-row .c-market{display:none}.signal-row .c-edge{grid-column:3;grid-row:1;text-align:right}.signal-row .c-odd{grid-column:3;grid-row:2;text-align:right}.mobile-prefix{display:inline;color:var(--faint);font-size:10px;font-weight:400}\n.match-row{grid-template-columns:46px minmax(0,1fr) 74px;gap:5px 8px;min-height:64px;padding:7px 8px}.match-row .team-stack{grid-column:2}.match-row .series-cell{display:none}.match-row .map-cell{grid-column:1/3;grid-row:2}.match-row .prob-cell{grid-column:3;grid-row:1}.prob-line{grid-column:3;grid-row:2}\n.board-row{grid-template-columns:54px minmax(0,1fr) 62px;gap:5px 8px;min-height:67px;padding:7px 8px}.board-row .match-name{grid-column:2}.board-row .board-pick{grid-column:1/3;grid-row:2}.board-row .board-model,.board-row .board-market{display:none}.board-row .board-edge{grid-column:3;grid-row:1}.board-row .news{grid-column:3;grid-row:2}.match-name b{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}\n.rail{grid-template-columns:1fr}.rail .method{grid-column:auto}}\n@media(max-width:400px){.head-inner,.page{width:calc(100% - 16px)}.summary-item{display:block}.summary-item span{display:block;margin-top:1px}.signal-row{grid-template-columns:46px minmax(0,1fr) 56px}.board-row{grid-template-columns:50px minmax(0,1fr) 58px}}\n@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}\n</style></head><body><a class=skip href="#main">К содержанию</a>'
+
+def _e(value) -> str:
+    return html.escape(str(value if value is not None else ''))
+_TEAM_ALIASES = {'pain': 'paiN', 'pain gaming': 'paiN Gaming', 'sharks': 'Sharks', 'voca': 'Voca', 'lynn vision gaming': 'Lynn Vision Gaming', 'lynn vision': 'Lynn Vision'}
+_KEEP_UPPER = {'M80', 'TYLOO', 'NRG', 'BIG', 'ENCE', 'FURIA', 'OG', '9Z'}
+
+def _team_name(value) -> str:
+    raw = ' '.join(str(value or '?').split())
+    if raw.isdigit():
+        return f'Команда #{raw}'
+    alias = _TEAM_ALIASES.get(raw.casefold())
+    if alias:
+        return alias
+    if raw.isupper() and raw not in _KEEP_UPPER:
+        return raw.title()
+    return raw
+
+def _match_key(t1, t2) -> tuple[str, str]:
+    clean = lambda value: re.sub('[^a-z0-9а-яё]', '', str(value or '').casefold())
+    return tuple(sorted((clean(t1), clean(t2))))
+
+def _freshness(raw_ts) -> tuple[str, str, int | None]:
+    generated = _timestamp(raw_ts)
+    if generated is None:
+        return ('время неизвестно', '—', None)
+    age = max(0, int(time.time() - generated))
+    fresh = f'обновлено {age} сек назад' if age < 60 else f'обновлено {max(1, age // 60)} мин назад'
+    return (fresh, time.strftime('%H:%M', time.gmtime(generated)), age)
+
+def _edge_label(value) -> str:
+    number = _number(value)
+    return f'{number:+.1f}'
+
+def _signal_row(kind: str, tone: str, match: str, meta: str, pick: str, pick_meta: str, model: str, market: str, edge: str, odd: str) -> str:
+    return f'''<article class="signal-row tone-{tone}">\n<div class="type {tone}">{_e(kind)}</div>\n<div class=match-name><b>{_e(match)}</b><span class=sub>{_e(meta)}</span></div>\n<div class=recommendation>{_e(pick)}<small>{_e(pick_meta)}</small></div>\n<div class="num c-model"><strong>{_e(model)}</strong></div>\n<div class="num c-market"><strong>{_e(market)}</strong></div>\n<div class="num c-edge"><strong class="{('edge-pos' if edge.startswith('+') else 'edge-neg' if edge.startswith('-') else 'unknown')}"><span class=mobile-prefix>Δ </span>{_e(edge)}</strong></div>\n<div class="num c-odd"><strong><span class=mobile-prefix>@</span>{_e(odd)}</strong></div></article>'''
+
+def _signal_rows(d: dict) -> list[str]:
+    rows: list[str] = []
+    board_lookup = {_match_key(item.get('t1'), item.get('t2')): item for item in _rows(d.get('prematch_board'))}
+    steam = _dict(d.get('steam'))
+    for item in _rows(steam.get('live')):
+        entry = _number(item.get('entry'))
+        opened = _number(item.get('open'))
+        rows.append(_signal_row('ЛИНИЯ', 'live', f"{_team_name(item.get('t1'))} — {_team_name(item.get('t2'))}", 'движение коэффициента · live', _team_name(item.get('side')), f'линия {_fmt(opened, 2)} → {_fmt(entry, 2)}', f"{_fmt(item.get('strength'), 0)}% сила", '—', '—', _fmt(entry, 2)))
+    for item in _rows(d.get('value')):
+        odd = _number(item.get('odd'))
+        model = _pct(item.get('p'))
+        market = _implied(odd)
+        edge = round(model - market, 1)
+        rows.append(_signal_row('ТОТАЛ', 'value', f"{_team_name(item.get('t1'))} — {_team_name(item.get('t2'))}", 'тотал раундов · прематч', f"{item.get('side') or '?'} {_fmt(item.get('line'))}", 'основная линия', f'{_fmt(model)}%', f'{_fmt(market)}%', f'{edge:+.1f}', _fmt(odd, 2)))
+    for item in _rows(d.get('prematch_picks')):
+        anti = item.get('kind') == 'anti'
+        odd = _number(item.get('odd'))
+        has_p = item.get('p') not in (None, '')
+        if has_p:
+            model = _pct(item.get('p'))
+            market = _implied(odd)
+            edge = round(model - market, 1)
+            model_label, market_label = (f'{_fmt(model)}%', f'{_fmt(market)}%')
+        else:
+            board_row = board_lookup.get(_match_key(item.get('t1'), item.get('t2')))
+            if board_row and board_row.get('pm_fav') is not None and (board_row.get('pf_fav') is not None):
+                pf = _pct(_number(board_row.get('pf_fav')) * 100)
+                pm = _pct(_number(board_row.get('pm_fav')) * 100)
+                favorite = str(board_row.get('fav') or '')
+                side = str(item.get('side') or '')
+                if side and favorite and (side.casefold() != favorite.casefold()):
+                    model, market = (100 - pm, 100 - pf)
+                else:
+                    model, market = (pm, pf)
+                edge = round(model - market, 1)
+                model_label, market_label = (f'{_fmt(model)}%', f'{_fmt(market)}%')
+            else:
+                edge = round(_number(item.get('edge')), 1)
+                model_label = market_label = '—'
+        pick = f"{_team_name(item.get('side'))} +1.5 карты" if anti else f"{_team_name(item.get('side'))} победа"
+        rows.append(_signal_row('+1.5' if anti else 'VALUE', 'watch' if anti else 'value', f"{_team_name(item.get('t1'))} — {_team_name(item.get('t2'))}", 'защита от 0:2 · BO3+' if anti else 'прематч · победитель', pick, 'минимум одна карта' if anti else 'сравнение с нормализованной линией', model_label, market_label, f'{edge:+.1f}', _fmt(odd, 2)))
+    return rows
+
+def _live_row(match: dict) -> str:
+    raw_team1, raw_team2 = (str(match.get('team1') or '?'), str(match.get('team2') or '?'))
+    team1, team2 = (_team_name(raw_team1), _team_name(raw_team2))
+    probs = _dict(match.get('p_series'))
+    pa = _pct(_number(probs.get(raw_team1), 0.5) * 100, 50)
+    pb = round(100 - pa, 1)
+    current = str(match.get('current') or '—')
+    bo = max(1, int(_number(match.get('bo'), 3)))
+    cur_map = str(match.get('cur_map') or 'карта уточняется')
+    score_match = re.search('(\\d+)\\s*[-:]\\s*(\\d+)', current)
+    score1, score2 = score_match.groups() if score_match else ('', '')
+    return f"""<article class=match-row><div class=live-state>LIVE</div>\n<div class=team-stack><div class=team-line><span>{_e(team1)}</span><b>{_e(score1)}</b></div><div class=team-line><span>{_e(team2)}</span><b>{_e(score2)}</b></div></div>\n<div class="match-meta series-cell"><b class=series-score>BO{bo}</b><span class=sub>{('решающая карта' if match.get('is_decider') else 'серия')}</span></div>\n<div class="match-meta map-cell">{_e(cur_map)}</div>\n<div class="prob-cell"><div class=prob><b>{_fmt(pa)}%</b><span>—</span><b>{_fmt(pb)}%</b></div></div>\n<div class=prob-line style="--prob:{_fmt(pa)}%"><span></span></div></article>"""
+
+def _news_status(row: dict) -> tuple[str, str, str]:
+    flag = _clean_display(row.get('news_flag'))
+    reason = _clean_display(row.get('news_reason'))
+    raw = f'{flag}: {reason}'.strip(' :') if flag else _clean_display(row.get('news'))
+    match = re.match('^(RED|GREEN)\\s*:?\\s*(.*)$', raw, flags=re.IGNORECASE)
+    if match and match.group(1).upper() == 'RED':
+        reason = match.group(2).strip(' -:.')
+        return ('РИСК', 'risk', reason if re.search('[а-яё]', reason, re.IGNORECASE) else 'есть фактор риска')
+    if match and match.group(1).upper() == 'GREEN':
+        return ('ПРОВЕРЕНО', 'ok', '')
+    return ('НЕТ ДАННЫХ', 'unknown', '' if raw.upper() == 'UNKNOWN' else raw)
+_MONTHS = ('', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря')
+
+def _board_date(value, today: date) -> tuple[str, str]:
+    match = re.match('^(\\d{4})-(\\d{2})-(\\d{2})', str(value or ''))
+    if not match:
+        return ('9999-99-99', 'Дата уточняется')
+    year, month, day = map(int, match.groups())
+    try:
+        current = date(year, month, day)
+    except ValueError:
+        return ('9999-99-99', 'Дата уточняется')
+    prefix = 'Сегодня · ' if current == today else 'Завтра · ' if current == today + timedelta(days=1) else ''
+    return (current.isoformat(), f'{prefix}{day} {_MONTHS[month]} · UTC')
+
+def _board_row(row: dict) -> str:
+    favorite = str(row.get('fav') or '')
+    bet_side = str(row.get('bet_side') or '')
+    pf = _pct(_number(row.get('pf_fav')) * 100)
+    pm = _pct(_number(row.get('pm_fav')) * 100)
+    if bet_side and favorite and (bet_side.casefold() != favorite.casefold()):
+        model, market, side = (100 - pm, 100 - pf, bet_side)
+    else:
+        model, market, side = (pm, pf, favorite or bet_side or '—')
+    edge = round(model - market, 1)
+    news, news_cls, reason = _news_status(row)
+    start = _start_label(row.get('start_date'))
+    day, _, clock = start.partition(' · ')
+    odd = _number(row.get('bet_odd'))
+    pick = f'{side} @ {_fmt(odd, 2)}' if bet_side else 'без ставки'
+    verdict = str(row.get('verdict') or 'PASS').upper()
+    verdict_label = {'VALUE': 'есть value', 'SUSPICIOUS': 'аномалия', 'PASS': 'без сигнала'}.get(verdict, 'без сигнала')
+    return f'''<article class=board-row><div class=time-cell><b>{_e(clock or '—')}</b><span>{_e(day)}</span></div>\n<div class=match-name><b>{_e(_team_name(row.get('t1')))} — {_e(_team_name(row.get('t2')))}</b><span class=sub>BO{max(1, int(_number(row.get('bo'), 3)))} · {_e(verdict_label)}</span></div>\n<div class="recommendation board-pick">{_e(_team_name(side) if bet_side else pick)}{(f' @ {_fmt(odd, 2)}' if bet_side else '')}<small>{_e(reason)}</small></div>\n<div class="num board-model"><strong>{_fmt(model)}%</strong></div><div class="num board-market"><strong>{_fmt(market)}%</strong></div>\n<div class="num board-edge"><strong class="{('edge-pos' if edge >= 0 else 'edge-neg')}"><span class=mobile-prefix>Δ </span>{edge:+.1f}</strong></div>\n<div class="news {news_cls}">{news}</div></article>'''
+
+def _strategy_rows(d: dict) -> str:
+    items = (('Live-линия', _dict(d.get('livelag'))), ('Прематч', _dict(d.get('prematch'))), ('Тоталы', _dict(d.get('roi'))))
+    out = []
+    for name, item in items:
+        roi = _number(item.get('roi'))
+        cls = 'edge-pos' if roi >= 0 else 'edge-neg'
+        out.append(f"<div class=strategy><div class=strategy-line><span>{_e(name)}</span><b class={cls}>{roi:+.1f}% ROI</b></div>\n<div class=strategy-meta>{int(_number(item.get('n')))} ставок · {_fmt(item.get('winrate'), 0)}% WR · {int(_number(item.get('pending')))} ждут</div></div>")
+    return ''.join(out)
+
+def _calibration_rows(track: dict) -> str:
+    out = []
+    for key in ('series', 'map', 'total'):
+        item = _dict(track.get(key))
+        if not item:
+            continue
+        actual = _pct(item.get('winrate'))
+        expected = _pct(item.get('avg_p'))
+        out.append(f"""<div class=cal-row><div class=cal-top><b>{_e(item.get('label') or key)}</b><span>{_fmt(actual)} / {_fmt(expected)}%</span></div>\n<div class=cal-track style="--actual:{_fmt(actual)}%;--expected:{_fmt(expected)}%"><span></span><i></i></div>\n<div class=cal-bottom><span>{int(_number(item.get('n')))} ставок</span><span>факт / модель</span></div></div>""")
+    return ''.join(out) or '<div class=unknown>Данные копятся</div>'
+
+def render(d: dict) -> str:
+    d = _dict(d)
+    fresh, utc, age = _freshness(d.get('ts'))
+    live = _rows(d.get('live'))
+    board = sorted(_rows(d.get('prematch_board')), key=lambda item: str(item.get('start_date') or '9999'))
+    signals = _signal_rows(d)
+    generated = _timestamp(d.get('ts')) or time.time()
+    now_utc = time.gmtime(generated)
+    today = date(now_utc.tm_year, now_utc.tm_mon, now_utc.tm_mday)
+    strategies = [_dict(d.get(key)) for key in ('livelag', 'prematch', 'roi')]
+    settled = int(sum((_number(item.get('n')) for item in strategies)))
+    won = int(sum((_number(item.get('wins')) for item in strategies)))
+    pending = int(sum((_number(item.get('pending')) for item in strategies)))
+    profit = round(sum((_number(item.get('pl')) for item in strategies)), 2)
+    wr = round(won / settled * 100) if settled else 0
+    roi = round(profit / settled * 100, 1) if settled else 0
+    status = 'данные актуальны' if age is not None and age < 180 else 'нужно обновление'
+    P = [CS2_HEAD_V3]
+    P.append(f'''<header class=site-head><div class=head-inner><a class=wordmark href="/"><span class=wordmark-mark></span>CS2 ANALYST</a>\n<nav class=main-nav aria-label="Разделы"><a class=active href="#main">Обзор</a><a href="#signals">Сигналы</a><a href="#matches">Матчи</a><a href="#accuracy">Статистика</a><a href="/football">Футбол</a></nav>\n<div class=head-fresh><span class="fresh-dot{(' stale' if age is None or age >= 180 else '')}"></span>{_e(fresh)}</div></div></header><main class=page id=main>\n<div class=page-title><div><h1>Матчи и сигналы</h1><p>Текущие рекомендации, live-состояние и проверка модели</p></div><span class=utc>{_e(utc)} UTC</span></div>\n<section class=summary aria-label="Сводка"><div class=summary-item><b>{settled}</b><span>ставок</span></div><div class=summary-item><b>{wr}%</b><span>WR · forward-test</span></div>\n<div class=summary-item><b class="{('positive' if roi >= 0 else 'edge-neg')}">{roi:+.1f}%</b><span>ROI · forward-test</span></div><div class=summary-item><b>{len(signals)}</b><span>активных</span></div></section>\n<div class=layout><div class=main-feed>''')
+    P.append(f'<section class=section id=signals><div class=section-bar><h2>Рекомендации</h2><span>{len(signals)}</span></div>\n<div class="column-head signal-cols"><span>Тип</span><span>Матч</span><span>Рекомендация</span><span class=num>Модель</span><span class=num>Рынок</span><span class=num>Δ п.п.</span><span class=num>Кэф</span></div>')
+    if signals:
+        P.append('<div class=signal-list>' + ''.join(signals) + '</div>')
+    else:
+        P.append('<div class=empty>Сигналов с достаточным преимуществом нет.</div>')
+    P.append(f'</section><section class=section id=matches><div class=section-bar><h2>Live-матчи</h2><span>{len(live)}</span></div>\n<div class="column-head match-cols"><span>Статус</span><span>Команды</span><span>Формат</span><span>Карта</span><span>Вероятность</span></div>')
+    if live:
+        P.append('<div class=match-list>' + ''.join((_live_row(item) for item in live)) + '</div>')
+    else:
+        P.append('<div class=empty>Сейчас нет live-матчей.</div>')
+    P.append(f'</section><section class=section id=upcoming><div class=section-bar><h2>Ближайшие матчи</h2><span>{len(board)}</span></div>\n<div class="column-head board-cols"><span>Время</span><span>Матч</span><span>Выбор</span><span class=num>Модель</span><span class=num>Бук</span><span class=num>Δ п.п.</span><span class=num>Новости</span></div>')
+    if board:
+        grouped = []
+        current_group = None
+        for item in board:
+            group_key, group_label = _board_date(item.get('start_date'), today)
+            if group_key != current_group:
+                grouped.append(f'<div class=date-band>{_e(group_label)}</div>')
+                current_group = group_key
+            grouped.append(_board_row(item))
+        P.append('<div class=board-list>' + ''.join(grouped) + '</div>')
+    else:
+        P.append('<div class=empty>Ближайшие матчи пока не рассчитаны.</div>')
+    P.append('</section></div><aside class=rail>')
+    P.append(f'''<section class=rail-box><div class=rail-title>Состояние</div><div class=rail-body><div class=status-list>\n<span>Обновление</span><b class="{('edge-pos' if age is not None and age < 180 else 'edge-neg')}">{_e(status)}</b><span>Live</span><b>{len(live)}</b><span>Сигналы</span><b>{len(signals)}</b><span>Прибыль</span><b class="{('edge-pos' if profit >= 0 else 'edge-neg')}">{profit:+.2f}u</b>\n</div></div></section><section class=rail-box><div class=rail-title>Стратегии</div><div class=rail-body>{_strategy_rows(d)}</div></section>''')
+    P.append(f"""<section class=rail-box id=accuracy><div class=rail-title>Калибровка</div><div class=rail-body>{_calibration_rows(_dict(d.get('track')))}</div></section>\n<details class="rail-box method"><summary class=rail-title>Методика</summary><div class=rail-body><p>Forward-test без удаления проигрышей. Δ — разница вероятности модели и нормализованной оценки рынка. Сигнал не гарантирует исход.</p></div></details></aside></div>\n<footer class=footnote>Данные обновляются автоматически каждые 30 секунд · используйте фиксированный размер ставки</footer></main></body></html>""")
+    return '\n'.join(P)
+_render_cs2_v3 = render
+V4_OVERRIDES = '\n/* v4 — Atlantic Broadcast. Flat, chromatic surfaces; semantic accents only. */\n:root{\n  --bg:#0b1724;--head:#10263b;--surface:#152b40;--row:#1b354c;--row-hover:#21405a;\n  --line:#31566f;--line-soft:#27465b;--text:#edf3f5;--muted:#afc1cc;--faint:#8da4b3;\n  --blue:#69a9cf;--blue-soft:#203e56;--brand:#e8864a;--actual-color:#69a9cf;--model:#63cfdb;--market:#b5aacb;\n  --green:#67c18f;--red:#f07a76;--amber:#dfb65e\n}\nbody{background:var(--bg);color:var(--text)}\n.site-head{background:var(--head);border-bottom-color:#39627d}\n.wordmark-mark{background:var(--brand)}\n.main-nav a:hover,.main-nav a.active{color:#fff;border-bottom-color:var(--brand)}\n.main-nav a:hover{background:#173149}\n.fresh-dot{background:var(--green)}.fresh-dot.stale{background:var(--red)}\n.page-title h1{color:#f7fbfc}.page-title p{color:#a9c0ce}.utc{color:#8eb2c8}\n.summary{background:#142a40;border-color:var(--line)}\n.summary-item{border-left-color:var(--line);border-top:3px solid transparent}\n.summary-item:nth-child(1){background:#17334b;border-top-color:var(--blue)}\n.summary-item:nth-child(2){background:#163748;border-top-color:var(--model)}\n.summary-item:nth-child(3){background:#173b3b;border-top-color:var(--green)}\n.summary-item:nth-child(4){background:#382f38;border-top-color:var(--brand)}\n.summary-item:nth-child(1) b{color:#a9d7f1}.summary-item:nth-child(2) b{color:var(--model)}\n.summary-item:nth-child(4) b{color:#f2b27f}.summary-item span{color:#b6c7d1}\n.section-bar{background:#20415a;border-color:var(--line);border-left:4px solid var(--blue)}\n#signals .section-bar{border-left-color:var(--brand)}\n#matches .section-bar{border-left-color:var(--red)}\n#upcoming .section-bar{border-left-color:var(--blue)}\n.section-bar h2{color:#f0f7f9}.section-bar span{color:#9dbaca}\n.column-head{background:#112a3e;border-color:var(--line);color:#91adbd}\n.signal-cols span:nth-child(4),.board-cols span:nth-child(4){color:var(--model)}\n.signal-cols span:nth-child(5),.board-cols span:nth-child(5){color:var(--market)}\n.signal-cols span:nth-child(6),.board-cols span:nth-child(6){color:#8edcaf}\n.signal-list,.match-list,.board-list{background:var(--surface);border-color:var(--line)}\n.signal-row,.match-row,.board-row{background:var(--row);border-bottom-color:var(--line-soft)}\n.signal-row:nth-child(even),.match-row:nth-child(even),.board-row:nth-child(even){background:#183148}\n.signal-row.tone-live{background:#303744;--tone:var(--brand)}\n.signal-row.tone-value{background:#193b42;--tone:var(--green)}\n.signal-row.tone-watch{background:#21394f;--tone:#789fbe}\n.type.live{color:#f0a06b}.type.value{color:#81d8a7}.type.watch{color:#94bad5}\n.c-model strong,.board-model strong{color:var(--model)}\n.c-market strong,.board-market strong{color:var(--market)}\n.edge-pos{color:#81d8a7}.edge-neg{color:#ff918e}.unknown{color:#91aaba}\n.recommendation small,.sub{color:#94adbb}\n.match-row{border-left:3px solid var(--red);background:#1c344b}\n.live-state{color:#ff918e}.match-meta{color:#a9c0ce}\n.prob-line{background:#2b4a60}.prob-line span{background:var(--model)}\n.date-band{background:#28516d;color:#ffd0a7;border-bottom-color:#3c6883}\n.board-row{background:#1a344b}.board-row:nth-child(even){background:#1d3951}\n.news.ok{color:#83d7a8}.news.risk{color:#ff918e}.news.unknown{color:#efc66d}\n.rail-box{background:#152e44;border-color:var(--line)}\n.rail-title{background:#20425b;border-bottom-color:#3b6077;color:#dcebf0}\n.rail-box:nth-child(1) .rail-title{border-left:4px solid var(--brand)}\n.rail-box:nth-child(2) .rail-title{border-left:4px solid var(--blue)}\n.rail-box:nth-child(3) .rail-title{border-left:4px solid var(--model)}\n.rail-box:nth-child(4) .rail-title{border-left:4px solid var(--faint)}\n.strategy,.cal-row{border-bottom-color:var(--line-soft)}\n.strategy-meta,.cal-bottom{color:#91a9b7}\n.cal-track{background:#2b4b61}.cal-track span{background:var(--actual-color)}.cal-track i{background:var(--model)}\n.method p{color:#aac0cb}.footnote{border-top-color:var(--line);color:#89a2b1}\n.mobile-prefix{color:#99b0bd}\n@media(max-width:720px){\n  .main-nav{background:#0f2235;border-top-color:#31566f}\n  .summary-item{border-left-color:#31566f;border-top-width:2px}\n}\n'
+CS2_HEAD_V4 = CS2_HEAD_V3.replace('content="#0d1014"', 'content="#0b1724"', 1).replace('</style>', V4_OVERRIDES + '\n</style>', 1)
+FOOTBALL_V4_OVERRIDES = '\n:root{\n  --bg:#0b1724;--bg2:#10263b;--surf:#152b40;--raised:#1b354c;--soft:#203e56;\n  --line:#31566f;--line2:#3b6782;--txt:#edf3f5;--mut:#afc1cc;--faint:#8da4b3;\n  --blue:#69a9cf;--blue2:#63cfdb;--green:#67c18f;--red:#f07a76;--amber:#dfb65e;--violet:#b5aacb;\n  --shadow:none;--r:6px;--r-sm:4px\n}\nbody{background:var(--bg)}\n.wrap{width:min(1180px,calc(100% - 32px))}\n.brand-mark{background:var(--brand,#e8864a);box-shadow:none;border-radius:4px}\n.tabs{background:#10263b;backdrop-filter:none;border-bottom-color:var(--line)}\n.tab{border-radius:4px}.tab:hover{background:#173149}.tab.active{background:#1b354c;box-shadow:inset 0 0 0 1px var(--line2)}\n.active .sport-dot{background:#e8864a;box-shadow:none}\n.stat{background:#17334b;border-color:var(--line);border-radius:6px}.stat::after{display:none}\n.stat:nth-child(2){background:#163748}.stat:nth-child(3){background:#173b3b}.stat:nth-child(4){background:#382f38}\n.card{background:#1b354c;border-color:var(--line);border-radius:5px;box-shadow:none}\n.card.val{background:#193b42;border-color:#3d735f}\n.sect{color:#edf3f5}.mut{color:#afc1cc}\n.calib{background:#183148;border-color:var(--line);border-radius:4px}\n.bar{background:#2b4b61}.bar .fill{background:#69a9cf}.bar .mark{background:#63cfdb;box-shadow:none}\n.three>div{background:#203e56;border-radius:4px}\n.empty{background:#152b40;border-color:var(--line2);border-radius:4px}\n.badge{border-radius:3px}.b-ok,.b-val{color:#81d8a7;background:#193b42}.b-live,.b-hi{color:#ff918e;background:#3b2b36}\n.b-warn,.b-md{color:#efc66d;background:#3c3829}.b-neutral{color:#a9d7f1;background:#203e56}\n.foot{border-top-color:var(--line)}\n'
+FOOTBALL_HEAD_V4 = HEAD.replace('content="#080c12"', 'content="#0b1724"', 1).replace('</style>', FOOTBALL_V4_OVERRIDES + '\n</style>', 1)
+
+def render(data: dict) -> str:
+    return _render_cs2_v3(data).replace(CS2_HEAD_V3, CS2_HEAD_V4, 1)
+
+def render_football(data: dict) -> str:
+    return _render_football_v2(data).replace(HEAD, FOOTBALL_HEAD_V4, 1)

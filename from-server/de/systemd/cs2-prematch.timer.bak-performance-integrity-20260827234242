@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 pre-match scan every 60 min
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=60min
+Persistent=true
+[Install]
+WantedBy=timers.target

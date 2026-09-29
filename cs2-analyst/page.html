@@ -1,0 +1,119 @@
+<!doctype html><html lang=ru><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta http-equiv=refresh content=30><title>CS2 Analyst</title><style>
+:root{--bg:#0b0e14;--surf:#141a24;--surf2:#1b2331;--line:#232d3d;--txt:#e8edf4;--mut:#8593a6;
+--grn:#3ddc84;--red:#ff6b6b;--blu:#5ab0ff;--amb:#ffc857;--vio:#b18cff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#131b2b 0,var(--bg) 60%);
+color:var(--txt);font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:18px 16px 60px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.brand{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.brand .dot{color:var(--grn)}
+.clock{font-size:12px;color:var(--mut);background:var(--surf);border:1px solid var(--line);
+border-radius:20px;padding:4px 12px;display:flex;align-items:center;gap:6px}
+.clock .live{width:7px;height:7px;border-radius:50%;background:var(--grn);box-shadow:0 0 8px var(--grn);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.tagline{color:var(--mut);font-size:13px;margin:0 0 18px}
+.hero{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.stat{background:linear-gradient(180deg,var(--surf2),var(--surf));border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px}
+.stat .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+.stat .v{font-size:26px;font-weight:800;margin-top:3px;letter-spacing:-.5px}
+.stat .s{font-size:12px;color:var(--mut);margin-top:1px}
+.sect{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin:26px 0 12px;display:flex;align-items:center;gap:8px}
+.sect::after{content:"";flex:1;height:1px;background:var(--line)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.strat{background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:16px;position:relative;overflow:hidden}
+.strat::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent,var(--blu))}
+.strat h3{margin:0 0 2px;font-size:15px;display:flex;align-items:center;gap:8px}
+.strat .desc{color:var(--mut);font-size:12.5px;line-height:1.45;min-height:70px;margin:6px 0 12px}
+.strat .big{display:flex;align-items:baseline;gap:10px}
+.strat .wr{font-size:30px;font-weight:800;letter-spacing:-1px}
+.strat .roi{font-size:15px;font-weight:700}
+.strat .meta{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--mut)}
+.strat .meta b{color:var(--txt)}
+.pos{color:var(--grn)}.neg{color:var(--red)}.blu{color:var(--blu)}.amb{color:var(--amb)}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.mrow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.team{font-weight:700;font-size:15px}
+.badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.b-live{background:rgba(255,107,107,.15);color:var(--red)}
+.b-ok{background:rgba(61,220,132,.14);color:var(--grn)}
+.b-warn{background:rgba(255,200,87,.15);color:var(--amb)}
+.b-val{background:rgba(61,220,132,.14);color:var(--grn);border:1px solid rgba(61,220,132,.35)}
+.mut{color:var(--mut);font-size:13px}
+.probbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin:10px 0 4px;font-size:12px;font-weight:700}
+.probbar .a{background:linear-gradient(90deg,#2b6cff,#5ab0ff);display:flex;align-items:center;padding:0 8px;color:#fff}
+.probbar .b{background:#26303f;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;color:var(--mut);flex:1}
+.val{border-color:rgba(61,220,132,.35)}
+.pick{display:flex;justify-content:space-between;align-items:center;background:rgba(61,220,132,.06);border:1px dashed rgba(61,220,132,.3);border-radius:10px;padding:8px 12px;margin-top:8px}
+.pick b{font-size:15px}
+.calib{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.calib .lab{display:flex;justify-content:space-between;font-size:12px}
+.bar{position:relative;height:10px;background:#26303f;border-radius:6px;overflow:hidden}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#2b6cff,#5ab0ff);border-radius:6px}
+.bar .mark{position:absolute;top:-3px;width:2px;height:16px;background:var(--amb)}
+.empty{color:var(--mut);font-style:italic;padding:14px;text-align:center;background:var(--surf);border:1px dashed var(--line);border-radius:12px}
+.foot{color:var(--mut);font-size:11.5px;text-align:center;margin-top:30px;line-height:1.6}
+@media(max-width:720px){.hero{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}.strat .desc{min-height:0}}
+</style></head><body><div class=wrap>
+<div class=top><div class=brand>🎯 CS2 <span class=dot>Analyst</span></div>
+<div class=clock><span class=live></span>00:13 UTC</div></div>
+<p class=tagline>Автоматические ставки на CS2 — модель + рыночные неэффективности. Обновление каждые 30 сек.</p>
+<div class=hero>
+<div class=stat><div class=k>Всего ставок</div><div class=v>56</div><div class=s>+61 ждут исхода</div></div>
+<div class=stat><div class=k>Винрейт</div><div class="v pos">62%</div><div class=s>35 из 56 зашло</div></div>
+<div class=stat><div class=k>ROI</div><div class="v pos">+20.6%</div><div class=s>+11.56 ед. прибыли</div></div>
+<div class=stat><div class=k>Сейчас</div><div class="v blu">0</div><div class=s>2 value-пиков</div></div>
+</div>
+<div class=sect>💰 Стратегии</div><div class=grid>
+<div class=strat style="--accent:var(--amb)">
+<h3>⚡ LIVE лаг-линии</h3><div class=desc>Ставит, когда исход карты почти решён (счёт 11-4), но бук не успел обновить live-коэффициент. Ловим задержку линии.</div>
+<div class=big><span class="wr pos">100%</span><span class="roi pos">ROI +89.9%</span></div>
+<div class=meta><span><b>7</b> ставок</span><span><b>+6.29</b> ед.</span><span>0 ждут</span></div>
+</div>
+<div class=strat style="--accent:var(--vio)">
+<h3>🔮 Пре-матч аномалии</h3><div class=desc>За часы до матча ищет странные коэффициенты (модель против линии — возможные договорняки) и находит value.</div>
+<div class=big><span class="wr pos">100%</span><span class="roi pos">ROI +110.0%</span></div>
+<div class=meta><span><b>1</b> ставок</span><span><b>+1.1</b> ед.</span><span>1 ждут</span></div>
+</div>
+<div class=strat style="--accent:var(--grn)">
+<h3>🎲 Тоталы раундов</h3><div class=desc>Наш калиброванный расчёт тотала раундов карты против линии winline. Ставим только при реальном крае.</div>
+<div class=big><span class="wr pos">56%</span><span class="roi pos">ROI +8.7%</span></div>
+<div class=meta><span><b>48</b> ставок</span><span><b>+4.17</b> ед.</span><span>60 ждут</span></div>
+</div>
+</div>
+<div class=sect>🔴 Идут сейчас</div>
+<div class=empty>Нет live-матчей прямо сейчас</div>
+<div class=sect>🎯 Ставить сейчас</div>
+<div class="card val">
+<div class=mrow><span class=team>ATREIDES vs SAW YOUNGSTERS</span><span class="badge b-val">край +8%</span></div>
+<div class=pick><b class=pos>ТМ 21.5 @ 1.93</b><span class=mut>наша вероятность 56%</span></div>
+</div>
+<div class="card val">
+<div class=mrow><span class=team>MIBR vs 9Z TEAM</span><span class="badge b-val">край +5%</span></div>
+<div class=pick><b class=pos>ТМ 21.5 @ 1.88</b><span class=mut>наша вероятность 56%</span></div>
+</div>
+<div class=sect>📊 Точность модели <span class=mut style="text-transform:none;letter-spacing:0;font-weight:400">— совпадает ли заявленная вероятность с реальностью</span></div>
+<div class=card>
+<div class=calib>
+<div class=lab><span><b>Победитель серии</b> · 135 ставок</span><span class="badge b-ok">✓ калибр</span></div>
+<div class=bar><div class=fill style="width:54%"></div><div class=mark style="left:56%"></div></div>
+<div class=lab><span class=mut>реально 54% зашло</span><span class=mut>▾ модель ждёт 56%</span></div>
+</div>
+<div style="height:14px"></div>
+<div class=calib>
+<div class=lab><span><b>Победитель карты</b> · 247 ставок</span><span class="badge b-ok">✓ калибр</span></div>
+<div class=bar><div class=fill style="width:51%"></div><div class=mark style="left:56%"></div></div>
+<div class=lab><span class=mut>реально 51% зашло</span><span class=mut>▾ модель ждёт 56%</span></div>
+</div>
+<div style="height:14px"></div>
+<div class=calib>
+<div class=lab><span><b>Тотал раундов</b> · 233 ставок</span><span class="badge b-ok">✓ калибр</span></div>
+<div class=bar><div class=fill style="width:57%"></div><div class=mark style="left:56%"></div></div>
+<div class=lab><span class=mut>реально 57% зашло</span><span class=mut>▾ модель ждёт 56%</span></div>
+</div>
+</div>
+<div class=foot>⚙️ Все стратегии считаются автоматически по факту исходов (форвард-тест) · параметры самонастраиваются ежедневно<br>
+странные матчи и value-пики приходят в Telegram · <span class=pos>зелёное = прибыль</span></div>
+</div></body></html>

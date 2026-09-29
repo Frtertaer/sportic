@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 pre-match anomaly/fixed-match scanner
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python prematch_scan.py
+TimeoutStartSec=600

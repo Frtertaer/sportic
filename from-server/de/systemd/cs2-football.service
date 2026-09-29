@@ -1,0 +1,8 @@
+[Unit]
+Description=SofaScore pre-match football predictions -> /football (generate + resolve + purge expired)
+After=network-online.target
+[Service]
+Type=oneshot
+TimeoutStartSec=600
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python /opt/cs2-analyst/sofa_football.py

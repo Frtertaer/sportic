@@ -1,0 +1,10 @@
+[Unit]
+Description=CS2 round-totals scrape + value monitor (winline vs calibrated base-rate)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python winline_totals.py
+ExecStartPost=/usr/bin/python3 totals_monitor.py
+TimeoutStartSec=300

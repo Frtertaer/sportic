@@ -1,0 +1,225 @@
+#!/usr/bin/env python3
+"""CS2 LIVE monitor (v3): driven by bo3 status=current (always has the live match +
+current-map name via /games), so the MODEL always attaches — no more "матч не в bo3".
+
+For each live CS2 match: compute the current-map win prob (per-map Glicko + side-split,
+via live_games) + the series prob conditioned on the live map score, attach winline LIVE
+odds when available (for value), and push a clean alert. Dedups by (slug, series, current
+map) so it pushes ONCE PER MAP (a map ended / a new map started / series changed) — NOT
+every round (that was the spam). Map scores come from bo3 /games (reliable 13-x), not the
+noisy winline round-by-round read.
+
+Between-round economy needs a <2s round feed we don't have; the live edge is between-maps
+(current-map model + series price), per the debate.
+
+  python cs2_live_monitor.py [--dry]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+import bo3_client as bo3  # noqa: E402
+import live_scenarios as L  # noqa: E402
+import monitor as mon  # noqa: E402  (telegram_send)
+import winline_live  # noqa: E402
+
+STATE = ROOT / "data" / "live_seen.json"
+MIN_EDGE = 0.04
+
+
+def _load() -> dict:
+    if STATE.exists():
+        try:
+            return json.loads(STATE.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            return {}
+    return {}
+
+
+def _save(d: dict) -> None:
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(d), encoding="utf-8")
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+
+def build_msg(s: dict) -> str:
+    """s = live_scenarios.live_games(slug) result."""
+    t1, t2 = s["team1"], s["team2"]
+    head = (f"🔴 <b>LIVE: {t1} vs {t2}</b> (Bo{s['bo']})\n"
+            f"📊 серия {s['current']}\n")
+
+    played_str = ", ".join(f"{g['map']} {g['score']}→{g['winner']}"
+                           for g in (s.get("played") or [])
+                           if g.get("map") and g.get("winner") and "None" not in g.get("score", ""))
+    played = f"  сыграно: {played_str}\n" if played_str else ""
+
+    # live winline odds + current-map round score (used for the round-total read + value)
+    wl = None
+    try:
+        wl = winline_live.lookup(t1, t2)
+    except Exception:  # noqa: BLE001
+        wl = None
+    played_r = None
+    if wl and wl.get("map_score") and len(wl["map_score"]) >= 2:
+        try:
+            played_r = int(wl["map_score"][0]) + int(wl["map_score"][1])
+        except (ValueError, TypeError):
+            played_r = None
+
+    map_line = rt_line = ""
+    if s.get("cur_map"):
+        cm = " | ".join(f"{k} {v*100:.0f}%" for k, v in s["p_cur_map"].items())
+        tag = " 🎯 ДЕСАЙДЕР = победа в серии" if s.get("is_decider") else ""
+        map_line = f"🗺 идёт карта <b>{s['cur_map']}</b>{tag}\n   модель карты: {cm}\n"
+        # live round-total read for the current map. The model estimates the FULL-map total,
+        # valid at map START; once a map is well underway (>=10 rounds) the book's live line
+        # is sharper, so we defer to it then instead of giving a stale call.
+        try:
+            import round_totals as rtot
+            pcur = s["p_cur_map"].get(s["team1"], 0.5)
+            LINE = 21.5  # winline's standard CS2 map round-total line
+            ou = rtot.over_under(s["cur_map"], pcur, LINE)
+            if played_r is not None and played_r >= 10:
+                rt_line = (f"🎲 тотал раундов {s['cur_map']}: сыграно {played_r}р. — карта в разгаре, "
+                           f"ориентир = live-линия бука (модель полной карты ~{ou['expected']:.0f})\n")
+            else:
+                side = "ТБ" if ou["p_over"] >= 0.5 else "ТМ"
+                fr = ou["fair_over"] if ou["p_over"] >= 0.5 else ou["fair_under"]
+                ctx = f" (сыграно {played_r}р.)" if played_r else ""
+                rt_line = (f"🎲 тотал раундов {s['cur_map']}{ctx}: модель ждёт ~{ou['expected']:.0f} "
+                           f"→ наш <b>{side} {LINE} @ {fr}</b> (бери у бука коэф ВЫШЕ)\n")
+        except Exception:  # noqa: BLE001
+            rt_line = ""
+
+    ser = " | ".join(f"{k} {v*100:.0f}%" for k, v in s["p_series"].items())
+    fair = " | ".join(f"{k} {round(1/v,2)}" for k, v in s["p_series"].items() if v and v > 0.01)
+    series_line = (f"🧮 серия (модель): {ser}\n"
+                   f"💡 справедл. коэф: {fair}  — бери у бука ВЫШЕ = value\n")
+
+    # attach winline LIVE odds when available -> value vs the series model
+    odds_line = value = ""
+    if wl and wl.get("odd_t1") and wl.get("odd_t2"):
+        odds_line = f"🏦 live коэф: {t1} {wl['odd_t1']} / {t2} {wl['odd_t2']}\n"
+        for nm, p in s["p_series"].items():
+            odd = wl["odd_t1"] if (_norm(nm) in _norm(t1) or _norm(t1) in _norm(nm)) else wl["odd_t2"]
+            e = p * odd - 1
+            if e >= MIN_EDGE and p >= 0.53:  # skip near-coin-flip series (model_p<0.53 realized 46% wr = -EV)
+                value += f"💎 <b>VALUE: {nm} серия @ {odd}</b> (модель {p*100:.0f}% → край +{e*100:.0f}%)\n"
+    else:
+        odds_line = "🏦 live-коэф winline: нет (модель без value-проверки)\n"
+
+    rated = f"<i>данных по картам: {s.get('rated1','?')}/{s.get('rated2','?')} (≥3 игр)</i>" \
+        if (s.get("rated1", 9) < 3 or s.get("rated2", 9) < 3) else ""
+    return head + played + map_line + rt_line + series_line + odds_line + value + rated
+
+
+PICKS = ROOT / "data" / "live_picks.jsonl"
+
+
+def _logged_keys() -> set:
+    keys = set()
+    if PICKS.exists():
+        for ln in PICKS.read_text(encoding="utf-8").splitlines():
+            try:
+                keys.add(json.loads(ln)["key"])
+            except Exception:  # noqa: BLE001
+                pass
+    return keys
+
+
+def _log_picks(slug: str, s: dict, logged: set) -> None:
+    """Log the model's live PREDICTIONS (series / current-map / round-total) ONCE each so a
+    resolver can grade them vs bo3 -> a real calibration track record. Keyed for dedup."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    recs = []
+    fav = max(s["p_series"], key=lambda k: s["p_series"][k])
+    recs.append({"key": f"{slug}|series", "slug": slug, "match": s["match"], "market": "series",
+                 "side": fav, "model_p": round(s["p_series"][fav], 3), "at_score": s["current"]})
+    if s.get("cur_map"):
+        mp = s["cur_map"]
+        mfav = max(s["p_cur_map"], key=lambda k: s["p_cur_map"][k])
+        recs.append({"key": f"{slug}|map|{mp}", "slug": slug, "match": s["match"], "market": "map",
+                     "map": mp, "side": mfav, "model_p": round(__import__("veto_sim").calibrate_map_p(s["p_cur_map"][mfav]), 3)})
+        try:
+            import round_totals as rtot
+            ou = rtot.over_under(mp, s["p_cur_map"].get(s["team1"], 0.5), 21.5)
+            tside = "ТБ" if ou["p_over"] >= 0.5 else "ТМ"
+            tp = ou["p_over"] if tside == "ТБ" else (1 - ou["p_over"])
+            recs.append({"key": f"{slug}|total|{mp}", "slug": slug, "match": s["match"],
+                         "market": "total", "map": mp, "line": 21.5, "side": tside,
+                         "model_p": round(tp, 3)})
+        except Exception:  # noqa: BLE001
+            pass
+    for r in recs:
+        if r["key"] in logged:
+            continue
+        r["logged_at"] = now
+        with PICKS.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+        logged.add(r["key"])
+
+
+def run(dry: bool) -> None:
+    seen = _load()
+    logged = _logged_keys()
+    try:
+        cur = bo3._get("/matches", {
+            "filter[matches.status][eq]": "current",
+            "filter[matches.discipline_id][eq]": 1,
+            "sort": "start_date", "page[offset]": 0, "page[limit]": 30,
+        }).get("results", [])
+    except Exception as e:  # noqa: BLE001
+        print(f"bo3 current fetch failed: {e}")
+        cur = []
+    print(f"bo3 current CS2: {len(cur)}")
+    pushed = 0
+    for m in cur:
+        slug = m.get("slug")
+        if not slug:
+            continue
+        try:
+            s = L.live_games(slug)
+        except Exception as e:  # noqa: BLE001
+            print(f"  live_games {slug} failed: {e}")
+            continue
+        if not s:
+            continue
+        if not dry:
+            _log_picks(slug, s, logged)  # track every model prediction for calibration
+        # push once per MAP/series state (not per round) = the price-after-map trigger
+        state = f"{s['current']}|{s.get('cur_map')}"
+        if seen.get(slug) == state:
+            print(f"  {slug}: unchanged ({state})")
+            continue
+        msg = build_msg(s)
+        if dry:
+            print("=" * 50 + "\n" + msg)
+            seen[slug] = state
+        else:
+            if mon.telegram_send(msg):
+                seen[slug] = state
+                pushed += 1
+                print(f"  pushed {slug} @ {state}")
+    if not dry:
+        _save(seen)
+    print(f"done. pushed={pushed}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry", action="store_true")
+    run(ap.parse_args().dry)
+
+
+if __name__ == "__main__":
+    main()

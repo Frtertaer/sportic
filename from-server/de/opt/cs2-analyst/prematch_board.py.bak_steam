@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""Full pre-match BOARD: every upcoming CS2 match with the model's read — favourite %, and the
+anti-sweep 'takes >=1 map' near-lock (from the MC score_dist). Needs ONLY the model, so it fills
+even when winline has no pre-match line yet. Overlays winline odds + a value flag when a line
+exists. Writes data/prematch_board.json for the dashboard 'Ближайшие матчи' section."""
+from __future__ import annotations
+import json, sys
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+import bo3_client as bo3          # noqa: E402
+import veto_sim as vs            # noqa: E402
+import winline_odds              # noqa: E402
+
+HOURS_AHEAD = 14
+MIN_RATED = 3
+OUT = ROOT / "data" / "prematch_board.json"
+
+
+def build() -> int:
+    now = datetime.now(timezone.utc)
+    horizon = now + timedelta(hours=HOURS_AHEAD)
+    try:
+        r = bo3._get("/matches", {"filter[matches.status][eq]": "upcoming",
+                                  "filter[matches.discipline_id][eq]": 1,
+                                  "page[limit]": 60, "sort": "start_date"})
+        ups = r.get("results", r) or []
+    except Exception as e:  # noqa: BLE001
+        print("bo3 fetch failed:", e); return 0
+    board = []
+    for m in ups:
+        t1, t2, bo = m.get("team1_id"), m.get("team2_id"), m.get("bo_type") or 3
+        sd = m.get("start_date")
+        if not (t1 and t2):
+            continue
+        try:
+            if datetime.fromisoformat(sd.replace("Z", "+00:00")) > horizon:
+                continue
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            pred = vs.predict(t1, t2, bo)
+        except Exception:  # noqa: BLE001
+            continue
+        if pred.get("rated1", 0) < MIN_RATED or pred.get("rated2", 0) < MIN_RATED:
+            continue
+        n1, n2 = pred["team1"], pred["team2"]
+        pm1, pm2 = pred["p1_win"], pred["p2_win"]
+        sw1 = pred["score_dist"].get("0-2", 0.0)      # team1 wins 0 maps
+        sw2 = pred["score_dist"].get("2-0", 0.0)      # team2 wins 0 maps
+        anti = [(n1, round(1 - sw1, 3)), (n2, round(1 - sw2, 3))]
+        al = max(anti, key=lambda x: x[1])
+        rec = {"t1": n1, "t2": n2, "bo": bo, "fav": n1 if pm1 >= pm2 else n2,
+               "pm_fav": round(max(pm1, pm2), 3), "pf_fav": None, "ml1": None, "ml2": None,
+               "verdict": "PASS", "bet_side": None, "bet_odd": None,
+               "antisweep": [al[0], al[1]], "start_date": sd}
+        try:
+            wl = winline_odds.lookup(n1, n2)
+        except Exception:  # noqa: BLE001
+            wl = None
+        if wl and (wl.get("odd1") or 0) > 1 and (wl.get("odd2") or 0) > 1:
+            ml1, ml2 = wl["odd1"], wl["odd2"]
+            q1, q2 = 1 / ml1, 1 / ml2
+            pf1, pf2 = q1 / (q1 + q2), q2 / (q1 + q2)
+            rec["ml1"], rec["ml2"] = ml1, ml2
+            rec["pf_fav"] = round(max(pf1, pf2), 3)
+            edge1 = pm1 - pf1
+            if 0.07 <= abs(edge1) <= 0.15:            # model-side genuine value (same band as scanner)
+                side, po = (n1, ml1) if edge1 > 0 else (n2, ml2)
+                rec["verdict"], rec["bet_side"], rec["bet_odd"] = "VALUE", side, po
+        board.append(rec)
+    OUT.write_text(json.dumps({"updated": now.isoformat(), "matches": board}, ensure_ascii=False),
+                   encoding="utf-8")
+    locks = sum(1 for r in board if r["antisweep"][1] >= 0.90)
+    print(f"board: {len(board)} upcoming | {locks} near-locks (>=90% take >=1 map)")
+    return len(board)
+
+
+if __name__ == "__main__":
+    build()

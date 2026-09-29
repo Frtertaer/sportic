@@ -1,0 +1,9 @@
+[Unit]
+Description=SportsBot forward-test resolution (twice daily)
+
+[Timer]
+OnCalendar=*-*-* 06,22:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

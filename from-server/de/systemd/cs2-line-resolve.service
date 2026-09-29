@@ -1,0 +1,7 @@
+[Unit]
+Description=Grade winline steam follows vs bo3 (win-rate track)
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 /opt/cs2-analyst/line_steam_resolve.py

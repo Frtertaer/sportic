@@ -1,0 +1,7 @@
+[Unit]
+Description=Scrape g-cs.ru finished CS2 results (full coverage)
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python /opt/cs2-analyst/gcs_results.py

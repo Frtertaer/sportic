@@ -1,0 +1,21 @@
+[Unit]
+Description=Capture fresh public Winline football prematch prices
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/opt/sportsbot/football_winline.py
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/sportsbot
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONPATH=/opt/sportsbot/.venv/lib/python3.12/site-packages
+ExecStart=/opt/kwork-monitor/.venv/bin/python /opt/sportsbot/football_winline.py --output /opt/sportsbot/data/football_winline.json
+TimeoutStartSec=600
+Restart=no
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target

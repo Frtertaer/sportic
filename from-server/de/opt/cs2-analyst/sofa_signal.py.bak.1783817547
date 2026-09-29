@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""Phase 3b — full degraded pipeline (v3.2, 2026-07-11). THREE tiers of data, best-available used:
+  1) xG matches (top/mid): real live-xG Poisson model.
+  2) no-xG but SHOTS present (e.g. Ecuador LigaPro): **proxy-xG built from shots/SoT/big-chances/
+     shots-in-box** (0.25·big + 0.09·shots_in_box + 0.025·shots_out) — real shot data, tier B.
+  3) no shots but momentum present: Attack-Momentum proxy, tier C.
+Same for all: early(25-57')='ещё 2 гола' / late(58-85')='ещё гол', Poisson p→fair→min-bettable(+EV gate),
+blowout filter, scoreline dedup, shot-confirmation. Bottom-tier leagues (USL L2 / Uruguay Segunda) have
+NEITHER on SofaScore → need external source (TotalCorner / Flashscore x-feed) = phase 4."""
+from __future__ import annotations
+import json, math, sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+LIVE = ROOT / "data" / "sofa_live.json"
+HIST = ROOT / "data" / "sofa_live_history.jsonl"
+LOG = ROOT / "data" / "sofa_signal_log.jsonl"
+SEEN = ROOT / "data" / "sofa_signal_seen.json"
+sys.path.insert(0, str(ROOT))
+
+WIN_MIN, WIN_MAX = 25, 85
+EARLY_MAX = 57
+XG_STRONG, XG_MOD = 0.45, 0.30
+PXG_STRONG, PXG_MOD = 0.50, 0.34     # proxy-xG a touch stricter (noisier than real xG)
+EDGE = 1.04
+P_MIN, P_MAX = 0.05, 0.90
+MOM_MIN_MINUTE, MOM_STRONG = 58, 30.0
+
+
+def _read(p):
+    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] if p.exists() else []
+
+
+def _tot(r, k):
+    return (r.get(k + "_h") or 0) + (r.get(k + "_a") or 0)
+
+
+def _recent(mid, cur_min, hist, key, window=12):
+    past = [h for h in hist if h.get("id") == mid and h.get("minute") is not None
+            and 3 <= (cur_min - h["minute"]) <= window and h.get(key + "_h") is not None]
+    if not past:
+        return None
+    p = min(past, key=lambda h: h["minute"])
+    return (p.get(key + "_h") or 0) + (p.get(key + "_a") or 0)
+
+
+def _past_rec(mid, cur_min, hist, window=12):
+    past = [h for h in hist if h.get("id") == mid and h.get("minute") is not None
+            and 3 <= (cur_min - h["minute"]) <= window
+            and (h.get("shots_h") is not None or h.get("sot_h") is not None)]
+    return min(past, key=lambda h: h["minute"]) if past else None
+
+
+def _pxg(rec):
+    """Proxy total xG from shot stats (no-xG matches). Rough per-event weights."""
+    big = (rec.get("bigch_h") or 0) + (rec.get("bigch_a") or 0)
+    sib = (rec.get("sib_h") or 0) + (rec.get("sib_a") or 0)
+    shots = (rec.get("shots_h") or 0) + (rec.get("shots_a") or 0)
+    sot = (rec.get("sot_h") or 0) + (rec.get("sot_a") or 0)
+    if shots or sib:
+        return 0.25 * big + 0.09 * sib + 0.025 * max(0, shots - sib)
+    return 0.25 * big + 0.10 * sot
+
+
+def _send_tg(msg):
+    import json as _j, urllib.request as _u, urllib.parse as _p
+    cfg = _j.loads((ROOT / "data" / "sofa_tg.json").read_text(encoding="utf-8"))
+    data = _p.urlencode({"chat_id": cfg["chat_id"], "text": msg,
+                         "parse_mode": "HTML", "disable_web_page_preview": "true"}).encode()
+    _u.urlopen("https://api.telegram.org/bot%s/sendMessage" % cfg["token"], data=data, timeout=15)
+
+
+def _p_ge1(lam):
+    return 1 - math.exp(-lam)
+
+
+def _p_ge2(lam):
+    return 1 - math.exp(-lam) - lam * math.exp(-lam)
+
+
+def _model(cur_tot, minute, recent_val, strong, mod, sh, sa):
+    """Shared Poisson step. cur_tot = total xG-or-proxy so far. Returns (need,p,line) or None."""
+    total_now = sh + sa
+    avg_rate = cur_tot / max(minute, 1)
+    recent_rate = max(0.0, recent_val) / 10.0
+    proj = max(avg_rate, 0.6 * recent_rate + 0.4 * avg_rate)
+    lam = proj * max(2, 92 - minute)
+    if minute <= EARLY_MAX:
+        if recent_val < strong:
+            return None
+        return 2, _p_ge2(lam), total_now + 1.5
+    if recent_val < mod:
+        return None
+    return 1, _p_ge1(lam), total_now + 0.5
+
+
+def _xg_signal(r, mid, minute, sh, sa, hist):
+    past_xg = _recent(mid, minute, hist, "xg", 12)
+    if past_xg is None:
+        return None
+    recent_xg = _tot(r, "xg") - past_xg
+    rsot = _tot(r, "sot") - (_recent(mid, minute, hist, "sot", 12) or 0)
+    rbig = _tot(r, "bigch") - (_recent(mid, minute, hist, "bigch", 12) or 0)
+    if not (rsot >= 1 or rbig >= 1):
+        return None
+    m = _model(_tot(r, "xg"), minute, recent_xg, XG_STRONG, XG_MOD, sh, sa)
+    if not m:
+        return None
+    need, p, line = m
+    if not (P_MIN <= p <= P_MAX):
+        return None
+    tier = "A" if (recent_xg >= XG_STRONG and rbig >= 1) else "B"
+    press = f"📈 Давление: <b>+{recent_xg:.2f} xG</b> за ~10 мин · в створ +{rsot:.0f} · явных +{rbig:.0f}"
+    return {"src": "xg", "need": need, "p": p, "fair": 1 / p, "minbet": EDGE / p, "tier": tier,
+            "line": line, "total": sh + sa, "press": press, "note": "",
+            "recent_xg": round(recent_xg, 3), "recent_sot": rsot, "recent_big": rbig}
+
+
+def _proxy_signal(r, mid, minute, sh, sa, hist):
+    if r.get("shots_h") is None and r.get("sot_h") is None:
+        return None
+    pr = _past_rec(mid, minute, hist)
+    if pr is None:
+        return None
+    recent_px = _pxg(r) - _pxg(pr)
+    rsot = _tot(r, "sot") - ((pr.get("sot_h") or 0) + (pr.get("sot_a") or 0))
+    rbig = _tot(r, "bigch") - ((pr.get("bigch_h") or 0) + (pr.get("bigch_a") or 0))
+    if not (rsot >= 1 or rbig >= 1):
+        return None
+    m = _model(_pxg(r), minute, recent_px, PXG_STRONG, PXG_MOD, sh, sa)
+    if not m:
+        return None
+    need, p, line = m
+    if not (P_MIN <= p <= P_MAX):
+        return None
+    tier = "B" if (recent_px >= PXG_STRONG and rbig >= 1) else "C"
+    press = (f"📊 <b>Прокси-xG: +{recent_px:.2f}</b> (из ударов) · в створ +{rsot:.0f} · big +{rbig:.0f}")
+    return {"src": "proxy", "need": need, "p": p, "fair": 1 / p, "minbet": EDGE / p, "tier": tier,
+            "line": line, "total": sh + sa, "press": press,
+            "note": "\n⚠️ без офиц. xG — оценка по ударам (лига мягче, данные грубее)",
+            "recent_xg": round(recent_px, 3), "recent_sot": rsot, "recent_big": rbig}
+
+
+def _mom_signal(r, minute, sh, sa):
+    mom = r.get("mom")
+    if not mom or len(mom) < 5 or minute < MOM_MIN_MINUTE:
+        return None
+    last5 = mom[-5:]
+    avg5 = sum(last5) / 5.0
+    if abs(avg5) < MOM_STRONG or not (all(v > 0 for v in last5) or all(v < 0 for v in last5)):
+        return None
+    total_now = sh + sa
+    lam = min(1.8, (abs(avg5) / 40.0) * (max(2, 92 - minute) / 40.0))
+    p = _p_ge1(lam)
+    if not (P_MIN <= p <= P_MAX):
+        return None
+    side = "хозяева" if avg5 > 0 else "гости"
+    press = f"📉 <b>Attack Momentum {avg5:+.0f}</b> · {side} прижали и держат"
+    return {"src": "mom", "need": 1, "p": p, "fair": 1 / p, "minbet": EDGE / p, "tier": "C",
+            "line": total_now + 0.5, "total": total_now, "press": press,
+            "note": "\n⚠️ без xG и без ударной статы — только моментум (самая грубая оценка)",
+            "mom_avg5": round(avg5, 1)}
+
+
+def main(dry=False):
+    try:
+        live = json.loads(LIVE.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        print("no sofa_live.json"); return
+    hist = _read(HIST)
+    try:
+        seen = json.loads(SEEN.read_text(encoding="utf-8")) if SEEN.exists() else {}
+    except Exception:  # noqa: BLE001
+        seen = {}
+    fired = 0
+    for r in live.get("matches", []):
+        mid, minute = r.get("id"), r.get("minute")
+        sh, sa = r.get("sh"), r.get("sa")
+        if minute is None or sh is None or sa is None:
+            continue
+        if not (WIN_MIN <= minute <= WIN_MAX) or abs(sh - sa) >= 2:
+            continue
+        key = str(mid); score_key = f"{sh}-{sa}"
+        if seen.get(key) == score_key:
+            continue
+
+        if r.get("xg_h") is None:
+            continue  # PURE xG only (council 2026-07-11: drop unproven proxy/momentum, keep core clean)
+        sig = _xg_signal(r, mid, minute, sh, sa, hist)
+        if sig is None:
+            continue
+
+        icon = {"xg": "⚽", "proxy": "🎯", "mom": "⚡"}[sig["src"]]
+        kind = {"xg": "ещё гол", "proxy": "ещё гол (по ударам)", "mom": "давление"}[sig["src"]]
+        approx = "" if sig["src"] == "xg" else "≈"
+        goals_txt = "ещё ОДИН гол" if sig["need"] == 1 else "ещё ДВА гола"
+        msg = (
+            f"{icon} <b>СИГНАЛ — {kind}</b>  ·  надёжность {sig['tier']}\n"
+            f"🏟 <b>{r['home']} — {r['away']}</b>\n"
+            f"🏆 {r.get('tourn','')} · счёт <b>{sh}:{sa}</b> · <b>{minute}'</b>{sig['note']}\n"
+            f"\n"
+            f"{sig['press']}\n"
+            f"🎲 <b>СТАВКА: ТБ {sig['line']:.1f}</b> — зайдёт, если до конца матча будет <b>{goals_txt}</b>\n"
+            f"🟢 Бери на winline <b>СЕЙЧАС (лайв)</b>, если коэф ≥ <b>{sig['minbet']:.2f}</b>\n"
+            f"   оценка модели: {approx}{sig['p']*100:.0f}% → честный коэф {approx}{sig['fair']:.2f}"
+        )
+        print(msg.replace("<b>", "").replace("</b>", ""))
+        if not dry:
+            try:
+                _send_tg(msg)
+            except Exception as e:  # noqa: BLE001
+                print("tg fail:", e)
+            with LOG.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"id": mid, "home": r["home"], "away": r["away"], "minute": minute,
+                                    "score": score_key, "tot_goals": sig["total"], "need_goals": sig["need"],
+                                    "market": f"ТБ {sig['line']:.1f}", "p_model": round(sig["p"], 4),
+                                    "fair": round(sig["fair"], 3), "min_odds": round(sig["minbet"], 3),
+                                    "tier": sig["tier"], "src": sig["src"], "recent_xg": sig.get("recent_xg"),
+                                    "recent_sot": sig.get("recent_sot"), "recent_big": sig.get("recent_big"),
+                                    "mom_avg5": sig.get("mom_avg5"), "tourn": r.get("tourn"),
+                                    "logged_at": datetime.now(timezone.utc).isoformat()}, ensure_ascii=False) + "\n")
+        seen[key] = score_key
+        fired += 1
+    if not dry:
+        SEEN.write_text(json.dumps(seen), encoding="utf-8")
+    print(f"signals fired: {fired}")
+
+
+if __name__ == "__main__":
+    main(dry="--dry" in sys.argv)

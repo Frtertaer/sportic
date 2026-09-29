@@ -1,0 +1,8 @@
+[Unit]
+Description=Grade CS2 pre-match bets every 60 min
+[Timer]
+OnBootSec=25min
+OnUnitActiveSec=60min
+Persistent=true
+[Install]
+WantedBy=timers.target

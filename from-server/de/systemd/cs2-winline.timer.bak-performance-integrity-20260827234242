@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh winline CS2 odds every 20 min
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=20min
+[Install]
+WantedBy=timers.target

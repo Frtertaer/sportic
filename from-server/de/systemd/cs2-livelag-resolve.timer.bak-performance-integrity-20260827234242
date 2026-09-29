@@ -1,0 +1,10 @@
+[Unit]
+Description=Grade CS2 live-lag forward-test bets hourly
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=60min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

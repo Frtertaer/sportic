@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 forward-test settle + ROI
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 -u resolve.py --notify
+TimeoutStartSec=600

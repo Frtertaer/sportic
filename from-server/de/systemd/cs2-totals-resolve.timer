@@ -1,0 +1,7 @@
+[Unit]
+Description=CS2 totals forward-test settle hourly
+[Timer]
+OnCalendar=*-*-* *:25:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target

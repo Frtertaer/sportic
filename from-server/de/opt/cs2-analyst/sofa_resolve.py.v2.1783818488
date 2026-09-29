@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""Grade «Ожидается гол» signals by the REAL FINAL score from SofaScore (/api/v1/event/{id}), not the
+live-history (which drops late goals when a match leaves the live feed — that wrongly marked Yanbian 3:1
+= 4 goals as a loss). Flow: quick-win from history if already hit; else once the match is finished,
+fetch the true final total → grade. `--regrade` re-checks ALL existing results against finals (one-time fix)."""
+from __future__ import annotations
+import asyncio, json, sys, time
+from collections import defaultdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+LOG = ROOT / "data" / "sofa_signal_log.jsonl"
+RES = ROOT / "data" / "sofa_signal_results.jsonl"
+HIST = ROOT / "data" / "sofa_live_history.jsonl"
+PROXY = "http://127.0.0.1:10001"
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+
+
+def _read(p):
+    return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] if p.exists() else []
+
+
+async def _nav_json(p, url, tries=8):
+    await p.goto(url, wait_until="domcontentloaded", timeout=60000)
+    for _ in range(tries):
+        await p.wait_for_timeout(1100)
+        try:
+            d = json.loads(await p.evaluate("() => document.body ? document.body.innerText : ''"))
+            if isinstance(d, dict) and "error" not in d:
+                return d
+        except Exception:  # noqa: BLE001
+            pass
+    return None
+
+
+async def _finals(event_ids: list[int]) -> dict:
+    """Return {event_id: final_total_goals} for FINISHED matches (browser+proxy, beats Cloudflare)."""
+    out = {}
+    if not event_ids:
+        return out
+    from playwright.async_api import async_playwright
+    async with async_playwright() as pw:
+        b = await pw.chromium.launch(headless=True, proxy={"server": PROXY},
+                                     args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
+        ctx = await b.new_context(user_agent=UA, locale="en-US")
+        p = await ctx.new_page()
+        for eid in event_ids:
+            d = await _nav_json(p, f"https://api.sofascore.com/api/v1/event/{eid}")
+            e = (d or {}).get("event") or {}
+            st = (e.get("status") or {}).get("type")
+            if st == "finished":
+                out[eid] = ((e.get("homeScore") or {}).get("current") or 0) + ((e.get("awayScore") or {}).get("current") or 0)
+        await b.close()
+    return out
+
+
+def _track():
+    res = _read(RES)
+    n = len(res); w = sum(1 for r in res if r.get("outcome") == "win")
+    print(f"ТРЕК: {w}/{n} = {100*w/n:.0f}%" + (f" | брейк-ивен @{1/(w/n):.3f}" if w else "") if n else "трек пуст")
+
+
+def regrade():
+    """One-time: re-check EVERY existing result against the true SofaScore final. Fixes undercounted losses."""
+    res = _read(RES)
+    ids = list({r["id"] for r in res})
+    print(f"перепроверяю {len(res)} исходов по финалам {len(ids)} матчей...")
+    finals = asyncio.run(_finals(ids))
+    fixed = 0
+    for r in res:
+        fin = finals.get(r["id"])
+        if fin is None:
+            continue
+        need = r.get("need_goals", 1); target = r.get("tot_goals", 0) + need
+        new = "win" if fin >= target else "loss"
+        if new != r.get("outcome"):
+            print(f"  ИСПРАВЛЕНО: {r.get('home','')[:14]} v {r.get('away','')[:14]} {r.get('minute')}' "
+                  f"{r.get('outcome')}→{new} (финал {fin}, нужно ≥{target})")
+            r["outcome"] = new; r["final_goals"] = fin; fixed += 1
+    RES.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in res) + "\n", encoding="utf-8")
+    print(f"исправлено: {fixed}")
+    _track()
+
+
+def run():
+    sigs = _read(LOG)
+    done = {f"{r['id']}|{r.get('logged_at')}" for r in _read(RES)}
+    byid = defaultdict(list)
+    for h in _read(HIST):
+        if h.get("id") is not None and h.get("minute") is not None:
+            byid[h["id"]].append((h["minute"], (h.get("sh") or 0) + (h.get("sa") or 0)))
+    out, verify = [], []
+    for s in sigs:
+        if f"{s['id']}|{s.get('logged_at')}" in done:
+            continue
+        later = [x for x in byid.get(s["id"], []) if x[0] > s.get("minute", 0)]
+        if not later:
+            continue
+        maxg = max(g for _, g in later); last_min = max(m for m, _ in later)
+        target = s.get("tot_goals", 0) + s.get("need_goals", 1)
+        if maxg >= target:                      # already hit per history -> win, no fetch needed
+            r = dict(s); r["outcome"] = "win"; r["final_goals"] = maxg; out.append(r)
+        elif last_min >= 89:                    # match ~done but history says not-hit -> VERIFY the true final
+            verify.append(s)
+        # else still going -> pending
+    if verify:                                  # history may have missed late goals -> use SofaScore final
+        finals = asyncio.run(_finals(list({s["id"] for s in verify})))
+        for s in verify:
+            fin = finals.get(s["id"])
+            if fin is None:
+                continue                        # can't confirm -> leave pending (never a false loss)
+            target = s.get("tot_goals", 0) + s.get("need_goals", 1)
+            r = dict(s); r["outcome"] = "win" if fin >= target else "loss"; r["final_goals"] = fin; out.append(r)
+    if out:
+        with RES.open("a", encoding="utf-8") as f:
+            for r in out:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    print(f"graded {len(out)} |", end=" "); _track()
+
+
+if __name__ == "__main__":
+    regrade() if "--regrade" in sys.argv else run()

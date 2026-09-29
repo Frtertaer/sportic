@@ -1,0 +1,57 @@
+[Unit]
+Description=SportsBot four-AI football paper council
+Wants=network-online.target
+Requires=football-winline.service
+After=network-online.target watchdog-http.service football-winline.service
+ConditionPathExists=/opt/sportsbot/scripts/council_forward_test.py
+
+[Service]
+Type=oneshot
+User=sportsbot-council
+Group=sportsbot-council
+SupplementaryGroups=omniroute-ai
+WorkingDirectory=/opt/sportsbot
+EnvironmentFile=/etc/sportsbot-paper-council/council.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=SPORTSBOT_SKIP_DOTENV=1
+Environment=COUNCIL_OMNIROUTE_URL=http://127.0.0.1:20130
+Environment=COUNCIL_SPORT_KEYS=soccer_brazil_campeonato,soccer_finland_veikkausliiga,soccer_norway_eliteserien,soccer_sweden_allsvenskan
+Environment=COUNCIL_WINLINE_SNAPSHOT=/opt/sportsbot/data/football_winline.json
+Environment=COUNCIL_WINLINE_MAX_AGE_SECONDS=900
+ExecCondition=/bin/sh -c 'for unit in sportsbot-ft-predict.service omniroute-debate-post.service cs2-prematch.service cs2-line-anomaly.service cs2-monitor.service cs2-autolearn.service; do /usr/bin/systemctl is-active --quiet "$unit" && exit 1; done; exit 0'
+ExecStart=/usr/bin/flock --nonblock --conflict-exit-code 0 /run/sportsbot-paper-council/council.lock /usr/bin/flock --exclusive --nonblock --conflict-exit-code 0 /run/lock/omniroute-ai.lock /usr/bin/env COUNCIL_OMNIROUTE_URL=http://127.0.0.1:20130 /opt/sportsbot/.venv/bin/python /opt/sportsbot/scripts/council_forward_test.py --db /var/lib/sportsbot-paper-council/council.sqlite3 --max-fixtures 1 --min-hours 6 --max-hours 40
+TimeoutStartSec=900
+Restart=no
+StateDirectory=sportsbot-paper-council
+StateDirectoryMode=0700
+RuntimeDirectory=sportsbot-paper-council
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+UMask=0077
+Nice=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+SystemCallArchitectures=native
+RemoveIPC=yes
+ReadOnlyPaths=/opt/sportsbot
+
+[Install]
+WantedBy=multi-user.target

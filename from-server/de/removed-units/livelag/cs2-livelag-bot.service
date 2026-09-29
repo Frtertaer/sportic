@@ -1,0 +1,14 @@
+[Unit]
+Description=CS2 live-lag sniper (winline auto-bet) — DRY_RUN until auth+calibration
+After=network-online.target
+[Service]
+Type=simple
+WorkingDirectory=/opt/cs2-analyst
+Environment=DRY_RUN=1
+Environment=PYTHONUNBUFFERED=1
+Environment=WINLINE_BANKROLL_RUB=10000
+ExecStart=/opt/kwork-monitor/.venv/bin/python /opt/cs2-analyst/livelag_bet.py
+Restart=on-failure
+RestartSec=30
+[Install]
+WantedBy=multi-user.target

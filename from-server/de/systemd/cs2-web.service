@@ -1,0 +1,9 @@
+[Unit]
+Description=CS2 analyst web dashboard (:8920)
+After=network-online.target
+[Service]
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 -u web.py
+Restart=always
+[Install]
+WantedBy=multi-user.target

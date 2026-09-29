@@ -1,0 +1,9 @@
+[Unit]
+Description=SportsBot forward-test: settle finished bets + ROI tally
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/sportsbot
+ExecStart=/opt/sportsbot/.venv/bin/python scripts/forward_resolve.py
+TimeoutStartSec=600

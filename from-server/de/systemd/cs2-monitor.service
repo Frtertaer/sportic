@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 value-pick monitor (scan -> council -> Telegram alert)
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 -u monitor.py --days 2 --max 4
+TimeoutStartSec=5400

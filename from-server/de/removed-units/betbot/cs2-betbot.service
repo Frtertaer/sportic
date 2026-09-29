@@ -1,0 +1,12 @@
+[Unit]
+Description=CS2 forward-test Telegram bot (/coef odds entry)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 -u betbot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

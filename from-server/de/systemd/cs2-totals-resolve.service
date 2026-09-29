@@ -1,0 +1,6 @@
+[Unit]
+Description=CS2 round-totals forward-test settle + ROI
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/usr/bin/python3 totals_resolve.py --notify

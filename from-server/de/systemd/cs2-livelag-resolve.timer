@@ -1,0 +1,9 @@
+[Unit]
+Description=Grade CS2 live-lag forward-test bets hourly
+
+[Timer]
+OnCalendar=*-*-* *:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

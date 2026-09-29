@@ -1,0 +1,7 @@
+[Unit]
+Description=CS2 live-pick calibration resolver hourly
+[Timer]
+OnCalendar=*-*-* *:40:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target

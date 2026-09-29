@@ -1,0 +1,268 @@
+#!/usr/bin/env python3
+"""Keep cs2.georlarhorn.com/football ALWAYS populated with fresh pre-match predictions from SofaScore,
+and drop expired ones.
+
+Model: a Poisson attack/defence model — each side's recent goals scored/conceded → expected goals →
+score matrix → 1X2 / Over-2.5 / BTTS. Covers ANY team SofaScore has (not just the 153 in the old
+Elo DB), which is the whole point: Champions League qualifiers and small leagues get predictions too.
+
+Each run: pull upcoming fixtures (next ~34h) → predict → store with kick-off time; resolve finished
+matches from the real score; PURGE anything past kick-off that never resolved and stale results.
+The dashboard reads only rows with kick-off in the future, so expired predictions can never show. Settled rows are retained append-only.
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import math
+import sqlite3
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+DB = "/opt/cs2-analyst/data/sofa_football.db"
+PROXY = "http://127.0.0.1:10001"
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+
+MAX_MATCHES = 34            # cap per run so the browser session stays healthy
+HORIZON_H = 34              # only predict matches kicking off within this many hours
+FORM_TTL = 16 * 3600        # re-fetch a team's recent form at most this often
+FORM_N = 10                 # matches of recent form per team
+LEAGUE_AVG = 1.35           # goals per team per match, global baseline
+HOME_ADV = 1.12
+RESOLVE_AFTER_H = 2.6       # a match is finished ~this long after kick-off
+KEEP_RESOLVED_DAYS = 6
+
+
+def db() -> sqlite3.Connection:
+    Path(DB).parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(DB, timeout=30)
+    c.execute("""CREATE TABLE IF NOT EXISTS preds(
+        event_id INTEGER PRIMARY KEY, team1 TEXT, team2 TEXT, tournament TEXT, kickoff_ts INTEGER,
+        prob_w1 REAL, prob_draw REAL, prob_w2 REAL, prob_over_2_5 REAL, prob_under_2_5 REAL,
+        prob_btts_yes REAL, expected_goals REAL, top_rec TEXT, top_confidence_pct REAL,
+        risk_level TEXT, value_bets TEXT, generated_at INTEGER,
+        actual_result TEXT, actual_score TEXT, actual_gh INTEGER, actual_ga INTEGER, resolved_at INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS team_form(
+        team_id INTEGER PRIMARY KEY, gf REAL, ga REAL, n INTEGER, updated INTEGER)""")
+    c.commit()
+    return c
+
+
+# ───────────────────────── SofaScore fetch (browser + residential proxy) ─────────────────────────
+async def nav(page, url, tries=7):
+    try:
+        await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+    except Exception:  # noqa: BLE001
+        return None
+    for _ in range(tries):
+        await page.wait_for_timeout(1000)
+        try:
+            d = json.loads(await page.evaluate("() => document.body ? document.body.innerText : ''"))
+            if isinstance(d, dict) and "error" not in d:
+                return d
+        except Exception:  # noqa: BLE001
+            pass
+    return None
+
+
+async def tournaments_for(page, date):
+    ids = []
+    for pg in (1, 2):
+        d = await nav(page, f"https://api.sofascore.com/api/v1/sport/football/scheduled-tournaments/{date}/page/{pg}")
+        for row in (d or {}).get("scheduled", []):
+            ut = (row.get("tournament") or {}).get("uniqueTournament") or {}
+            if ut.get("id"):
+                ids.append(ut["id"])
+        if not (d or {}).get("hasNextPage"):
+            break
+    return list(dict.fromkeys(ids))
+
+
+async def fixtures(page):
+    """Upcoming matches within the horizon, across today+tomorrow's tournaments."""
+    now = time.time()
+    horizon = now + HORIZON_H * 3600
+    dates = [(datetime.now(timezone.utc) + timedelta(days=k)).strftime("%Y-%m-%d") for k in (0, 1)]
+    seen, out = set(), []
+    for date in dates:
+        for tid in await tournaments_for(page, date):
+            if len(out) >= MAX_MATCHES * 2:
+                break
+            d = await nav(page, f"https://api.sofascore.com/api/v1/unique-tournament/{tid}/scheduled-events/{date}")
+            for e in (d or {}).get("events", []):
+                if (e.get("status") or {}).get("type") != "notstarted":
+                    continue
+                ts = e.get("startTimestamp") or 0
+                if not (now + 900 < ts < horizon):     # 15-min grace so live/started ones drop
+                    continue
+                eid = e.get("id")
+                if eid in seen:
+                    continue
+                seen.add(eid)
+                out.append({
+                    "id": eid, "kickoff": ts,
+                    "t1": (e.get("homeTeam") or {}).get("name"), "t1id": (e.get("homeTeam") or {}).get("id"),
+                    "t2": (e.get("awayTeam") or {}).get("name"), "t2id": (e.get("awayTeam") or {}).get("id"),
+                    "tourn": (e.get("tournament") or {}).get("name"),
+                })
+    out.sort(key=lambda x: x["kickoff"])
+    return out[:MAX_MATCHES]
+
+
+async def team_form(page, conn, team_id):
+    """avg goals scored/conceded over last ~FORM_N matches; cached in DB."""
+    row = conn.execute("SELECT gf, ga, n, updated FROM team_form WHERE team_id=?", (team_id,)).fetchone()
+    if row and time.time() - row[3] < FORM_TTL and row[2] >= 4:
+        return row[0], row[1], row[2]
+    d = await nav(page, f"https://api.sofascore.com/api/v1/team/{team_id}/events/last/0")
+    evs = [e for e in (d or {}).get("events", []) if (e.get("status") or {}).get("type") == "finished"]
+    gf = ga = 0.0
+    n = 0
+    for e in evs[-FORM_N:]:
+        hs = (e.get("homeScore") or {}).get("current")
+        as_ = (e.get("awayScore") or {}).get("current")
+        if hs is None or as_ is None:
+            continue
+        home = (e.get("homeTeam") or {}).get("id") == team_id
+        gf += hs if home else as_
+        ga += as_ if home else hs
+        n += 1
+    if n:
+        gf, ga = gf / n, ga / n
+        conn.execute("INSERT OR REPLACE INTO team_form VALUES(?,?,?,?,?)",
+                     (team_id, gf, ga, n, int(time.time())))
+        conn.commit()
+        return gf, ga, n
+    return None
+
+
+# ───────────────────────── Poisson model ─────────────────────────
+def _pmf(k, lam):
+    return math.exp(-lam) * lam ** k / math.factorial(k)
+
+
+def _clamp(v, lo, hi):
+    return lo if v < lo else hi if v > hi else v
+
+
+def predict(hf, ha, af, aa):
+    """hf/ha = home team goals for/against avg; af/aa = away team. Returns probability dict (%)."""
+    h_att = _clamp(hf / LEAGUE_AVG, 0.25, 3.0)
+    h_def = _clamp(ha / LEAGUE_AVG, 0.25, 3.0)
+    a_att = _clamp(af / LEAGUE_AVG, 0.25, 3.0)
+    a_def = _clamp(aa / LEAGUE_AVG, 0.25, 3.0)
+    lh = _clamp(LEAGUE_AVG * h_att * a_def * HOME_ADV, 0.2, 4.5)
+    la = _clamp(LEAGUE_AVG * a_att * h_def / HOME_ADV, 0.2, 4.5)
+    ph = [_pmf(i, lh) for i in range(9)]
+    pa = [_pmf(j, la) for j in range(9)]
+    w1 = dr = w2 = over = btts = 0.0
+    for i in range(9):
+        for j in range(9):
+            p = ph[i] * pa[j]
+            if i > j:
+                w1 += p
+            elif i == j:
+                dr += p
+            else:
+                w2 += p
+            if i + j >= 3:
+                over += p
+            if i >= 1 and j >= 1:
+                btts += p
+    return {"w1": w1 * 100, "dr": dr * 100, "w2": w2 * 100,
+            "over": over * 100, "under": (1 - over) * 100, "btts": btts * 100, "eg": lh + la}
+
+
+def recommendation(t1, t2, pr):
+    """The single strongest actionable market + confidence + risk."""
+    opts = [
+        (f"Победа {t1}", pr["w1"]),
+        (f"Победа {t2}", pr["w2"]),
+        ("Over 2.5 Goals", pr["over"]),
+        ("Under 2.5 Goals", pr["under"]),
+        ("Обе забьют (BTTS)", pr["btts"]),
+    ]
+    rec, conf = max(opts, key=lambda x: x[1])
+    if conf < 52:                                   # nothing stands out -> lean to the likelier double chance
+        rec, conf = ("1X (не проиграет " + t1 + ")", pr["w1"] + pr["dr"]) if pr["w1"] >= pr["w2"] \
+            else ("X2 (не проиграет " + t2 + ")", pr["w2"] + pr["dr"])
+    risk = "HIGH" if conf < 55 else "MEDIUM" if conf < 66 else "LOW"
+    return rec, round(conf, 1), risk
+
+
+# ───────────────────────── main cycle ─────────────────────────
+async def _final(page, event_id):
+    d = await nav(page, f"https://api.sofascore.com/api/v1/event/{event_id}")
+    e = (d or {}).get("event") or {}
+    if (e.get("status") or {}).get("type") != "finished":
+        return None
+    return (e.get("homeScore") or {}).get("current"), (e.get("awayScore") or {}).get("current")
+
+
+async def run():
+    conn = db()
+    now = int(time.time())
+    from playwright.async_api import async_playwright
+    async with async_playwright() as pw:
+        b = await pw.chromium.launch(headless=True, proxy={"server": PROXY},
+                                     args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
+        page = await (await b.new_context(user_agent=UA, locale="en-US")).new_page()
+
+        # 1) resolve finished (kick-off long past, not yet resolved)
+        due = conn.execute("SELECT event_id FROM preds WHERE actual_result IS NULL AND kickoff_ts < ?",
+                           (now - int(RESOLVE_AFTER_H * 3600),)).fetchall()
+        resolved = 0
+        for (eid,) in due[:25]:
+            fin = await _final(page, eid)
+            if not fin or fin[0] is None:
+                continue
+            gh, ga = fin
+            res = "W1" if gh > ga else "W2" if ga > gh else "DRAW"
+            conn.execute("UPDATE preds SET actual_result=?,actual_score=?,actual_gh=?,actual_ga=?,resolved_at=? "
+                         "WHERE event_id=?", (res, f"{gh}:{ga}", gh, ga, now, eid))
+            resolved += 1
+        conn.commit()
+
+        # 2) generate upcoming
+        fx = await fixtures(page)
+        added = 0
+        for m in fx:
+            if not (m["t1id"] and m["t2id"]):
+                continue
+            hf = await team_form(page, conn, m["t1id"])
+            af = await team_form(page, conn, m["t2id"])
+            if not hf or not af:
+                continue
+            pr = predict(hf[0], hf[1], af[0], af[1])
+            rec, conf, risk = recommendation(m["t1"], m["t2"], pr)
+            conn.execute("""INSERT INTO preds(event_id,team1,team2,tournament,kickoff_ts,prob_w1,prob_draw,
+                prob_w2,prob_over_2_5,prob_under_2_5,prob_btts_yes,expected_goals,top_rec,top_confidence_pct,
+                risk_level,value_bets,generated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(event_id) DO UPDATE SET prob_w1=excluded.prob_w1,prob_draw=excluded.prob_draw,
+                prob_w2=excluded.prob_w2,prob_over_2_5=excluded.prob_over_2_5,prob_under_2_5=excluded.prob_under_2_5,
+                prob_btts_yes=excluded.prob_btts_yes,expected_goals=excluded.expected_goals,top_rec=excluded.top_rec,
+                top_confidence_pct=excluded.top_confidence_pct,risk_level=excluded.risk_level,
+                generated_at=excluded.generated_at, kickoff_ts=excluded.kickoff_ts""",
+                (m["id"], m["t1"], m["t2"], m["tourn"], m["kickoff"], round(pr["w1"], 1), round(pr["dr"], 1),
+                 round(pr["w2"], 1), round(pr["over"], 1), round(pr["under"], 1), round(pr["btts"], 1),
+                 round(pr["eg"], 2), rec, conf, risk, "[]", now))
+            added += 1
+        conn.commit()
+        await b.close()
+
+    # 3) purge: expired-unresolved past a grace window + old resolved
+    conn.execute("DELETE FROM preds WHERE actual_result IS NULL AND kickoff_ts < ?",
+                 (now - int(RESOLVE_AFTER_H * 3600) - 6 * 3600,))
+    conn.commit()
+
+    up = conn.execute("SELECT COUNT(*) FROM preds WHERE actual_result IS NULL AND kickoff_ts>?", (now,)).fetchone()[0]
+    rz = conn.execute("SELECT COUNT(*) FROM preds WHERE actual_result IS NOT NULL").fetchone()[0]
+    conn.close()
+    print(f"[sofa_football] +{added} прогнозов, resolved {resolved} | впереди сейчас: {up}, сыграно: {rz}")
+
+
+if __name__ == "__main__":
+    asyncio.run(run())

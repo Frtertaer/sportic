@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Phase 1 — SofaScore LIVE football feed for the goal-expected system. Playwright + DataImpulse
+residential proxy (beats the Cloudflare JS-challenge). Per in-progress match captures the momentum
+metrics (live xG, big chances, shots on target, total shots, shots-inside-box, touches in penalty
+area) + minute + score, writes the current snapshot to data/sofa_live.json and appends a timestamped
+row to sofa_live_history.jsonl (so the signal can compute recent Δxg/min = live pressure). Feed only —
+signal comes in phase 2. Oneshot (frees RAM between runs; the server has only 7.6GB)."""
+from __future__ import annotations
+import asyncio, json, re, time
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+LIVE = ROOT / "data" / "sofa_live.json"
+HIST = ROOT / "data" / "sofa_live_history.jsonl"
+PROXY = "http://127.0.0.1:10001"
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+WANT = {"Expected goals": "xg", "Big chances": "bigch", "Shots on target": "sot",
+        "Total shots": "shots", "Shots inside box": "sib", "Touches in penalty area": "tpa"}
+
+
+def _num(v):
+    m = re.match(r"[-+]?\d*\.?\d+", str(v or "").strip())
+    return float(m.group()) if m else None
+
+
+def _minute(e):
+    t = e.get("time", {}) or {}
+    desc = (e.get("status", {}) or {}).get("description", "").lower()
+    cps = t.get("currentPeriodStartTimestamp")
+    if not cps:
+        return None
+    if "1st" in desc or "first" in desc:
+        base = 0
+    elif "2nd" in desc or "second" in desc:
+        base = 45
+    else:
+        return None  # halftime / extra time / penalties / break -> minute unreliable (knockout ET bug)
+    return max(0, min(95, int((time.time() - cps) / 60) + base))
+
+
+async def _nav_json(p, url, tries=8):
+    """Nav to a SofaScore API url and poll until valid JSON appears (first call solves the Cloudflare
+    JS-challenge ~7-10s; later calls return in ~1s). Retries while body is a challenge/half-loaded."""
+    await p.goto(url, wait_until="domcontentloaded", timeout=60000)
+    for _ in range(tries):
+        await p.wait_for_timeout(1100)
+        try:
+            d = json.loads(await p.evaluate("() => document.body ? document.body.innerText : ''"))
+            if isinstance(d, dict) and "error" not in d:
+                return d
+        except Exception:  # noqa: BLE001
+            pass
+    return None
+
+
+async def scrape():
+    from playwright.async_api import async_playwright
+    out = []
+    async with async_playwright() as pw:
+        b = await pw.chromium.launch(headless=True, proxy={"server": PROXY},
+                                     args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
+        ctx = await b.new_context(user_agent=UA, locale="en-US")
+        await ctx.add_init_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+        p = await ctx.new_page()
+        live = await _nav_json(p, "https://api.sofascore.com/api/v1/sport/football/events/live")
+        if not live or "events" not in live:
+            await b.close()
+            print("live fetch failed (challenge/empty)")
+            return []
+        inplay = [e for e in live["events"] if e.get("status", {}).get("type") == "inprogress"]
+        # focus on the actionable goal-betting window (15-88') to keep the cycle short
+        inplay = [e for e in inplay if (_minute(e) or 0) and 15 <= _minute(e) <= 88]
+        for e in inplay:
+            eid = e["id"]
+            rec = {"id": eid, "home": e["homeTeam"]["name"], "away": e["awayTeam"]["name"],
+                   "sh": (e.get("homeScore") or {}).get("current"), "sa": (e.get("awayScore") or {}).get("current"),
+                   "minute": _minute(e), "tourn": (e.get("tournament") or {}).get("name")}
+            st = await _nav_json(p, f"https://api.sofascore.com/api/v1/event/{eid}/statistics")
+            if st:
+                for period in st.get("statistics", []):
+                    if period.get("period") != "ALL":
+                        continue
+                    for g in period.get("groups", []):
+                        for it in g.get("statisticsItems", []):
+                            k = WANT.get(it["name"])
+                            if k:
+                                rec[k + "_h"], rec[k + "_a"] = _num(it.get("home")), _num(it.get("away"))
+            out.append(rec)
+        await b.close()
+    return out
+
+
+def main():
+    rows = asyncio.run(scrape())
+    now = datetime.now(timezone.utc).isoformat()
+    LIVE.write_text(json.dumps({"updated": now, "matches": rows}, ensure_ascii=False), encoding="utf-8")
+    with HIST.open("a", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps({**r, "ts": now}, ensure_ascii=False) + "\n")
+    print(f"SofaScore live: {len(rows)} матчей -> sofa_live.json (+history)")
+    for r in rows[:8]:
+        print(f"  {r['home']} {r.get('sh')}:{r.get('sa')} {r['away']} {r.get('minute')}' | "
+              f"xG {r.get('xg_h')}-{r.get('xg_a')} | удары в створ {r.get('sot_h')}-{r.get('sot_a')} | "
+              f"big {r.get('bigch_h')}-{r.get('bigch_a')}")
+
+
+if __name__ == "__main__":
+    main()

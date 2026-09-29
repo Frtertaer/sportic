@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 anti-sweep scan every 2h
+[Timer]
+OnBootSec=12min
+OnUnitActiveSec=2h
+Persistent=true
+[Install]
+WantedBy=timers.target

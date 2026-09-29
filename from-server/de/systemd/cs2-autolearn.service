@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 self-learning param auto-tune (Hermes-style)
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python cs2_autolearn.py
+TimeoutStartSec=300

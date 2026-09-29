@@ -1,0 +1,8 @@
+[Unit]
+Description=Grade CS2 live-lag bets every 30 min
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Persistent=true
+[Install]
+WantedBy=timers.target

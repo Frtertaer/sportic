@@ -1,0 +1,6 @@
+[Unit]
+Description=SofaScore live-goals cycle (scrape->signal->resolve)
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/cs2-analyst/sofa_cycle.sh

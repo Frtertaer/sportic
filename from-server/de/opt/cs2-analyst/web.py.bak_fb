@@ -1,0 +1,309 @@
+#!/usr/bin/env python3
+"""CS2 analyst web dashboard (stdlib only, no deps). Clean live view so alerts don't pile
+up in Telegram. Shows: LIVE matches (maps + model + round-total + fair odds), current
+round-total VALUE picks vs winline, and forward-test ROI. Auto-refreshes.
+
+  python cs2_web.py            serve on 0.0.0.0:8920
+"""
+from __future__ import annotations
+from web_ui import render
+
+import html
+import json
+import sys
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+import bo3_client as bo3  # noqa: E402
+import live_scenarios as L  # noqa: E402
+import round_totals as rtot  # noqa: E402
+
+PORT = 8920
+_CACHE: dict = {"t": 0, "data": None}
+CACHE_TTL = 15
+NEUTRAL = (21.0, 22.0)
+MIN_EDGE, MAX_EDGE = 0.04, 0.12
+
+
+def _read_jsonl(p: Path) -> list:
+    out = []
+    if p.exists():
+        for ln in p.read_text(encoding="utf-8").splitlines():
+            if ln.strip():
+                try:
+                    out.append(json.loads(ln))
+                except Exception:  # noqa: BLE001
+                    pass
+    return out
+
+
+def _live() -> list:
+    try:
+        cur = bo3._get("/matches", {"filter[matches.status][eq]": "current",
+            "filter[matches.discipline_id][eq]": 1, "page[limit]": 20}).get("results", [])
+    except Exception:  # noqa: BLE001
+        return []
+    out = []
+    for m in cur:
+        try:
+            s = L.live_games(m.get("slug"))
+        except Exception:  # noqa: BLE001
+            s = None
+        if not s:
+            continue
+        rt = None
+        if s.get("cur_map"):
+            pcur = s["p_cur_map"].get(s["team1"], 0.5)
+            ou = rtot.over_under(s["cur_map"], pcur, 21.5)
+            side = "ТБ" if ou["p_over"] >= 0.5 else "ТМ"
+            rt = {"map": s["cur_map"], "exp": ou["expected"], "side": side,
+                  "fair": ou["fair_over"] if side == "ТБ" else ou["fair_under"]}
+        fair = {k: round(1 / v, 2) for k, v in s["p_series"].items() if v and v > 0.01}
+        out.append({**s, "round_total": rt, "fair_series": fair})
+    return out
+
+
+def _value_totals() -> list:
+    rows = []
+    try:
+        wl = json.loads((ROOT / "data" / "winline_totals.json").read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        wl = []
+    for r in wl:
+        cands = [t for t in (r.get("totals") or []) if NEUTRAL[0] <= t["line"] <= NEUTRAL[1]]
+        if not cands:
+            continue
+        tl = min(cands, key=lambda x: abs(x["line"] - 21.5))
+        p_over = rtot.avg_over(tl["line"])
+        if p_over is None:
+            continue
+        e_over, e_under = p_over * tl["over"] - 1, (1 - p_over) * tl["under"] - 1
+        side, edge, odd, p = (("ТБ", e_over, tl["over"], p_over) if e_over >= e_under
+                              else ("ТМ", e_under, tl["under"], 1 - p_over))
+        if MIN_EDGE <= edge <= MAX_EDGE:
+            rows.append({"t1": r["t1"], "t2": r["t2"], "line": tl["line"], "side": side,
+                         "odd": odd, "edge": round(edge * 100), "p": round(p * 100)})
+    return sorted(rows, key=lambda x: -x["edge"])
+
+
+def _livelag() -> dict:
+    res = _read_jsonl(ROOT / "data" / "livelag_ft_results.jsonl")
+    n = len(res)
+    wins = sum(1 for r in res if r.get("outcome") == "win")
+    pl = sum(float(r.get("pl_units", 0)) for r in res)
+    pend = len(_read_jsonl(ROOT / "data" / "livelag_ft_log.jsonl")) - n
+    return {"n": n, "wins": wins, "winrate": round(wins / n * 100) if n else 0,
+            "pl": round(pl, 2), "roi": round(pl / n * 100, 1) if n else 0, "pending": max(0, pend)}
+
+
+def _prematch() -> dict:
+    res = _read_jsonl(ROOT / "data" / "prematch_ft_results.jsonl")
+    n = len(res)
+    wins = sum(1 for r in res if r.get("outcome") == "win")
+    pl = sum(float(r.get("pl_units", 0)) for r in res)
+    pend = len(_read_jsonl(ROOT / "data" / "prematch_ft_log.jsonl")) - n
+    return {"n": n, "wins": wins, "winrate": round(wins / n * 100) if n else 0,
+            "pl": round(pl, 2), "roi": round(pl / n * 100, 1) if n else 0, "pending": max(0, pend)}
+
+
+def _roi() -> dict:
+    res = _read_jsonl(ROOT / "data" / "totals_ft_results.jsonl")
+    n = len(res)
+    wins = sum(1 for r in res if r.get("outcome") == "win")
+    pl = sum(float(r.get("pl_units", 0)) for r in res)
+    pend = len(_read_jsonl(ROOT / "data" / "totals_ft_log.jsonl")) - n
+    return {"n": n, "wins": wins, "winrate": round(wins / n * 100) if n else 0,
+            "pl": round(pl, 2), "roi": round(pl / n * 100, 1) if n else 0, "pending": max(0, pend)}
+
+
+def _prematch_picks() -> list:
+    """Current (unresolved, recent) pre-match VALUE bets -> the teams to actually bet."""
+    from datetime import datetime, timezone, timedelta
+    log = _read_jsonl(ROOT / "data" / "prematch_ft_log.jsonl")
+    done = {r.get("slug") for r in _read_jsonl(ROOT / "data" / "prematch_ft_results.jsonl")}
+    cut = datetime.now(timezone.utc) - timedelta(hours=30)
+    out = []
+    for r in log:
+        if r.get("slug") in done or not r.get("bet_side"):
+            continue
+        try:
+            if datetime.fromisoformat(str(r.get("logged_at")).replace("Z", "+00:00")) < cut:
+                continue
+        except Exception:
+            pass
+        sd = r.get("start_date")
+        if not sd:
+            continue
+        try:
+            if datetime.fromisoformat(str(sd).replace("Z", "+00:00")) <= datetime.now(timezone.utc):
+                continue
+        except Exception:
+            continue
+        out.append({"t1": r.get("t1"), "t2": r.get("t2"), "side": r.get("bet_side"),
+                    "odd": r.get("bet_odd"), "edge": round(abs(r.get("edge1", 0)) * 100)})
+    return out[-6:]
+
+
+def _track() -> dict:
+    """Calibration track record: per market (series/map/total) — does the model's stated
+    probability match the realized win rate? The honest 'what's actually working' view."""
+    res = _read_jsonl(ROOT / "data" / "live_picks_results.jsonl")
+    out = {}
+    labels = {"series": "Победитель серии", "map": "Победитель карты", "total": "Тотал раундов"}
+    for mk in ("series", "map", "total"):
+        rr = [r for r in res if r.get("market") == mk and "model_p" in r]
+        if not rr:
+            continue
+        n = len(rr)
+        w = sum(1 for r in rr if r.get("outcome") == "win")
+        avgp = sum(r["model_p"] for r in rr) / n
+        brier = sum((r["model_p"] - (1 if r["outcome"] == "win" else 0)) ** 2 for r in rr) / n
+        out[mk] = {"label": labels[mk], "n": n, "winrate": round(w / n * 100),
+                   "avg_p": round(avgp * 100), "gap": round((w / n - avgp) * 100),
+                   "brier": round(brier, 3), "recent": rr[-5:][::-1]}
+    return out
+
+
+def state() -> dict:
+    if time.time() - _CACHE["t"] < CACHE_TTL and _CACHE["data"]:
+        return _CACHE["data"]
+    d = {"live": _live(), "value": _value_totals(), "roi": _roi(), "prematch": _prematch(), "prematch_picks": _prematch_picks(), "livelag": _livelag(),
+         "track": _track(), "ts": int(time.time())}
+    _CACHE.update(t=time.time(), data=d)
+    return d
+
+
+def _old_render(d: dict) -> str:
+    e = html.escape
+    parts = ["""<!doctype html><html lang=ru><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta http-equiv=refresh content=30><title>CS2 analyst</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0e1116;color:#e6e6e6;font:15px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:18px;margin:6px 0 2px}.sub{color:#8a93a0;font-size:12px;margin-bottom:14px}
+h2{font-size:14px;color:#9fb3c8;border-bottom:1px solid #222a35;padding-bottom:6px;margin:20px 0 10px}
+.card{background:#161b22;border:1px solid #222a35;border-radius:10px;padding:12px;margin:8px 0}
+.t{font-weight:600;font-size:15px}.muted{color:#8a93a0;font-size:13px}
+.row{display:flex;justify-content:space-between;gap:8px;margin:4px 0}
+.pill{display:inline-block;background:#1f2937;border-radius:6px;padding:2px 8px;font-size:12px;margin:2px 4px 2px 0}
+.val{background:#16331f;color:#5ad27e;border:1px solid #245e36}
+.dec{color:#f2c14e}.under{color:#62b6ff}.b{font-weight:700}
+.empty{color:#6b7480;font-style:italic;padding:8px 0}
+.roi{font-size:22px;font-weight:700}.pos{color:#5ad27e}.neg{color:#ef6b6b}
+</style></head><body><div class=wrap>
+<h1>🎯 CS2 analyst</h1><div class=sub>обновляется каждые 30с · """ + time.strftime("%H:%M:%S", time.localtime(d["ts"])) + " UTC+0</div>"]
+
+    # LIVE
+    parts.append("<h2>🔴 LIVE сейчас</h2>")
+    if not d["live"]:
+        parts.append("<div class=empty>нет live-матчей</div>")
+    for s in d["live"]:
+        played = " · ".join(f"{e(g['map'])} {e(g['score'])}→{e(str(g['winner']))}"
+                            for g in (s.get("played") or []) if g.get("map") and g.get("winner")
+                            and "None" not in str(g.get("score", "")))
+        ser = " · ".join(f"{e(k)} <b>{int(v*100)}%</b>" for k, v in s["p_series"].items())
+        fair = " / ".join(f"{e(k)} {v}" for k, v in (s.get("fair_series") or {}).items())
+        cm = ""
+        if s.get("cur_map"):
+            cmp_ = " · ".join(f"{e(k)} {int(v*100)}%" for k, v in s["p_cur_map"].items())
+            dec = " 🎯ДЕСАЙДЕР" if s.get("is_decider") else ""
+            cm = f"<div class=row><span class=muted>🗺 идёт {e(s['cur_map'])}{dec}</span><span>{cmp_}</span></div>"
+        rt = ""
+        if s.get("round_total"):
+            r = s["round_total"]
+            rt = f"<div class=row><span class=muted>🎲 тотал {e(r['map'])} ~{r['exp']:.0f}</span><span class=under>{e(r['side'])} 21.5 @ {r['fair']}</span></div>"
+        parts.append(f"""<div class=card>
+<div class=row><span class=t>{e(s['team1'])} vs {e(s['team2'])}</span><span class=muted>Bo{s['bo']} · {e(s['current'])}</span></div>
+{f'<div class=muted>сыграно: {played}</div>' if played else ''}
+{cm}{rt}
+<div class=row><span>серия (модель)</span><span>{ser}</span></div>
+<div class=row><span class=muted>справедл. коэф</span><span class=muted>{fair}</span></div>
+</div>""")
+
+    # VALUE
+    parts.append("<h2>🎲 Value: тоталы раундов</h2>")
+    if not d["value"]:
+        parts.append("<div class=empty>сейчас value-пиков нет</div>")
+    for v in d["value"]:
+        parts.append(f"""<div class="card val">
+<div class=row><span class=t>{e(v['t1'])} vs {e(v['t2'])}</span><span class=pill val>+{v['edge']}%</span></div>
+<div class=row><span class=b>{e(v['side'])} {v['line']} @ {v['odd']}</span><span class=muted>модель {v['p']}%</span></div>
+</div>""")
+
+    # TRACK RECORD / CALIBRATION
+    parts.append("<h2>📊 Точность модели (что заходит)</h2>")
+    tr = d.get("track") or {}
+    if not tr:
+        parts.append("<div class=empty>пока нет рассчитанных прогнозов (накапливается по live-матчам)</div>")
+    for mk in ("series", "map", "total"):
+        t = tr.get(mk)
+        if not t:
+            continue
+        ok = abs(t["gap"]) <= 8
+        verdict = ("✅ калибр? да" if ok else ("⚠️ занижает" if t["gap"] > 0 else "⚠️ завышает"))
+        gcls = "pos" if ok else "neg"
+        rec = " · ".join(f"{e(str(x.get('side',''))[:10])} {'✅' if x['outcome']=='win' else '❌'}"
+                         for x in t["recent"])
+        parts.append(f"""<div class=card>
+<div class=row><span class=t>{e(t['label'])}</span><span class="pill {gcls}">{verdict}</span></div>
+<div class=row><span>ставок <b>{t['n']}</b> · винрейт <b>{t['winrate']}%</b></span>
+<span class=muted>модель ждёт {t['avg_p']}% · Brier {t['brier']}</span></div>
+<div class=muted>последние: {rec}</div></div>""")
+
+    # ROI (totals value picks)
+    r = d["roi"]
+    cls = "pos" if r["roi"] >= 0 else "neg"
+    parts.append(f"""<h2>📈 Форвард-тест (тоталы-value)</h2><div class=card>
+<div class=row><span>ставок: {r['n']} · винрейт {r['winrate']}% · ждут: {r['pending']}</span></div>
+<div class="roi {cls}">ROI {r['roi']:+}%</div><div class=muted>{r['pl']:+} ед.</div></div>""")
+
+    lg = d["livelag"]
+    lcls = "pos" if lg["roi"] >= 0 else "neg"
+    parts.append(f"""<h2>⚡ LIVE lag-value (лаг live-линии)</h2><div class=card>
+<div class=row><span>ставок: {lg['n']} · винрейт <b>{lg['winrate']}%</b> · ждут: {lg['pending']}</span></div>
+<div class="roi {lcls}">ROI {lg['roi']:+}%</div><div class=muted>{lg['pl']:+} ед. · near-certain live (P серии ≥85%, край ≥8%)</div></div>""")
+
+    pm = d["prematch"]
+    pcls = "pos" if pm["roi"] >= 0 else "neg"
+    parts.append(f"""<h2>🔮 Пре-матч скан (аномалии/договорняки → value)</h2><div class=card>
+<div class=row><span>ставок: {pm['n']} · винрейт <b>{pm['winrate']}%</b> · ждут: {pm['pending']}</span></div>
+<div class="roi {pcls}">ROI {pm['roi']:+}%</div><div class=muted>{pm['pl']:+} ед. · модель↔линия расхождение 7-15%, странные матчи в Telegram</div></div>""")
+
+    parts.append("</div></body></html>")
+    return "\n".join(parts)
+
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a):  # quiet
+        pass
+
+    def do_GET(self):
+        try:
+            d = state()
+        except Exception as exc:  # noqa: BLE001
+            self.send_response(500); self.end_headers()
+            self.wfile.write(f"err: {exc}".encode()); return
+        if self.path.startswith("/api"):
+            body = json.dumps(d, ensure_ascii=False).encode()
+            ctype = "application/json"
+        else:
+            body = render(d).encode()
+            ctype = "text/html; charset=utf-8"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def main() -> None:
+    srv = ThreadingHTTPServer(("0.0.0.0", PORT), H)
+    print(f"CS2 dashboard on :{PORT}")
+    srv.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

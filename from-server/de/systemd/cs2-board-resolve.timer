@@ -1,0 +1,7 @@
+[Unit]
+Description=Grade board picks every 40 min
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=40min
+[Install]
+WantedBy=timers.target

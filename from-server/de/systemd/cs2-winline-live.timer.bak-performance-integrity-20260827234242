@@ -1,0 +1,7 @@
+[Unit]
+Description=Refresh winline LIVE odds every 2 min
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+[Install]
+WantedBy=timers.target

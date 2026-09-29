@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily SportsBot forward-test prediction logging
+
+[Timer]
+OnCalendar=*-*-* 08:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

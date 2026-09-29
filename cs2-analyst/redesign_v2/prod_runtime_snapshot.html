@@ -1,0 +1,207 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<meta name="color-scheme" content="dark"><meta name="theme-color" content="#080c12">
+<title>Analyst — спортивная аналитика</title><style>
+:root{color-scheme:dark;--bg:#080c12;--bg2:#0c121c;--surf:#101722;--raised:#151f2d;--soft:#192536;
+--line:#263448;--line2:#31425c;--txt:#f5f7fb;--mut:#a8b3c4;--faint:#738198;--blue:#5b8cff;
+--blue2:#70b7ff;--green:#32d583;--red:#ff6677;--amber:#f6c453;--violet:#a78bfa;
+--shadow:0 18px 50px rgba(0,0,0,.26);--r:16px;--r-sm:12px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-width:320px;background:
+radial-gradient(900px 500px at 14% -10%,rgba(91,140,255,.12),transparent 60%),
+radial-gradient(800px 480px at 94% 8%,rgba(50,213,131,.07),transparent 62%),var(--bg);
+color:var(--txt);font:15px/1.5 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+a{color:inherit}.skip{position:fixed;left:16px;top:-80px;z-index:99;background:var(--txt);color:var(--bg);padding:10px 14px;border-radius:10px}
+.skip:focus{top:12px}.wrap{width:min(1320px,calc(100% - 48px));margin:0 auto;padding:18px 0 88px}
+.top{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:8px 0 14px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;font-size:18px;font-weight:760;letter-spacing:-.3px}
+.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:linear-gradient(145deg,var(--blue),#765cff);box-shadow:0 9px 22px rgba(91,140,255,.22);font-size:15px}.brand-copy{display:grid;line-height:1.15}.brand-copy small{margin-top:4px;color:var(--faint);font-size:11px;font-weight:600;letter-spacing:.04em}
+.top-status{display:flex;align-items:center;gap:10px}.clock,.health{display:inline-flex;align-items:center;gap:8px;min-height:34px;border:1px solid var(--line);border-radius:999px;padding:6px 11px;color:var(--mut);background:rgba(16,23,34,.72);font-size:12px}
+.live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(50,213,131,.09)}
+.tabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;margin:0 -10px 24px;padding:9px 10px;background:rgba(8,12,18,.86);backdrop-filter:blur(16px);border-bottom:1px solid rgba(38,52,72,.7)}
+.tab{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 16px;border-radius:11px;color:var(--mut);text-decoration:none;font-size:14px;font-weight:680;transition:color .15s,background .15s}
+.tab:hover{color:var(--txt);background:var(--surf)}.tab.active{color:var(--txt);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line2)}
+.sport-dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}.active .sport-dot{background:var(--blue);box-shadow:0 0 0 4px rgba(91,140,255,.12)}
+.page-intro{display:flex;justify-content:space-between;gap:24px;align-items:end;margin:0 0 18px}.eyebrow{margin:0 0 5px;color:var(--blue2);font-size:12px;font-weight:760;letter-spacing:.08em;text-transform:uppercase}.page-intro h1{margin:0;font-size:clamp(24px,3vw,34px);line-height:1.14;letter-spacing:-.035em}.tagline{max-width:680px;margin:8px 0 0;color:var(--mut);font-size:14px}.freshness{color:var(--faint);font-size:12px;white-space:nowrap}
+.hero{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 28px}.stat{position:relative;min-height:116px;padding:18px 19px;background:linear-gradient(160deg,var(--raised),var(--surf));border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.stat::after{content:"";position:absolute;inset:auto -20px -38px auto;width:100px;height:100px;border-radius:50%;background:var(--glow,rgba(91,140,255,.09));filter:blur(4px)}.stat .k{position:relative;z-index:1;color:var(--mut);font-size:12px;font-weight:680}.stat .v{position:relative;z-index:1;margin-top:7px;font-size:30px;line-height:1;font-weight:780;letter-spacing:-.045em}.stat .s{position:relative;z-index:1;margin-top:8px;color:var(--faint);font-size:12px}.stat.profit{--glow:rgba(50,213,131,.13)}.stat.alerts{--glow:rgba(255,102,119,.11)}
+.primary-grid,.secondary-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:18px;align-items:start}.primary-grid{margin-bottom:30px}.secondary-grid{margin-top:30px}.side-stack{display:grid;gap:16px}
+.panel{background:rgba(16,23,34,.9);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel-pad{padding:20px}.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px}.section-head h2,.sect{margin:0;color:var(--txt);font-size:18px;line-height:1.3;font-weight:730;letter-spacing:-.018em;text-transform:none}.section-head p{margin:5px 0 0;color:var(--mut);font-size:13px}.count{display:inline-flex;align-items:center;justify-content:center;min-width:27px;height:27px;border-radius:999px;background:rgba(91,140,255,.13);color:var(--blue2);font-size:12px;font-weight:760}
+.signals{display:grid;gap:10px}.signal{position:relative;padding:18px 18px 16px;background:linear-gradient(135deg,rgba(21,31,45,.98),rgba(16,23,34,.98));border:1px solid var(--line);border-radius:14px;overflow:hidden}.signal::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--tone,var(--green))}.signal.live-signal{--tone:var(--red)}.signal.anti{--tone:var(--violet)}.signal-head,.mrow{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.signal-kicker{display:flex;align-items:center;gap:8px;margin-bottom:4px;color:var(--faint);font-size:12px}.signal h3,.team{margin:0;font-size:16px;line-height:1.35;font-weight:720;overflow-wrap:anywhere}.badge{display:inline-flex;align-items:center;gap:6px;min-height:25px;padding:4px 9px;border-radius:999px;white-space:nowrap;font-size:11px;font-weight:740}.b-live{color:var(--red);background:rgba(255,102,119,.12)}.b-ok,.b-val{color:var(--green);background:rgba(50,213,131,.11)}.b-warn,.b-md{color:var(--amber);background:rgba(246,196,83,.11)}.b-hi{color:var(--red);background:rgba(255,102,119,.11)}.b-neutral{color:var(--blue2);background:rgba(91,140,255,.12)}
+.pick-main{display:flex;align-items:baseline;gap:9px;margin:14px 0 13px}.pick-main strong{font-size:22px;line-height:1.2;letter-spacing:-.025em}.pick-main span{color:var(--mut);font-size:13px}.metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.metric{padding:9px 10px;border-radius:10px;background:rgba(25,37,54,.7)}.metric span{display:block;color:var(--faint);font-size:11px}.metric b{display:block;margin-top:2px;font-size:14px}.signal-foot{display:flex;justify-content:space-between;gap:14px;margin-top:12px;padding-top:11px;border-top:1px solid rgba(38,52,72,.7);color:var(--faint);font-size:12px}.source{display:inline-flex;align-items:center;gap:6px}.source::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}.source.risk::before{background:var(--red)}.source.neutral::before{background:var(--amber)}
+.status-card{padding:19px}.status-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.status-line strong{font-size:16px}.status-good{color:var(--green)}.strategy-list{display:grid;gap:2px}.strategy{padding:12px 0;border-top:1px solid rgba(38,52,72,.65)}.strategy:first-child{border-top:0}.strategy-top{display:flex;justify-content:space-between;gap:12px;font-size:13px}.strategy-top b{font-size:13px}.strategy-meta{display:flex;gap:10px;margin-top:4px;color:var(--faint);font-size:11px}.method{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}.method summary{cursor:pointer;color:var(--mut);font-size:13px;font-weight:650}.method p{color:var(--faint);font-size:12px}
+.full-section{margin-top:30px}.live-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:16px;margin:10px 0}.card.val{border-color:rgba(50,213,131,.36);background:linear-gradient(135deg,rgba(50,213,131,.05),var(--surf) 34%)}.live-card{margin:0;padding:17px;background:linear-gradient(145deg,var(--raised),var(--surf))}.match-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;color:var(--faint);font-size:12px}.prob-labels{display:flex;justify-content:space-between;gap:16px;margin-top:16px;font-size:12px;overflow-wrap:anywhere}.prob-labels b{font-size:13px}.probbar{display:flex;height:8px;margin:7px 0 0;border-radius:999px;overflow:hidden;background:var(--soft)}.probbar .a{flex:0 0 var(--pa,50%);width:var(--pa,50%);padding:0;background:linear-gradient(90deg,var(--blue),var(--blue2))}.probbar .b{flex:0 0 calc(100% - var(--pa,50%));width:calc(100% - var(--pa,50%));padding:0;background:#2a3547}.pick{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:13px;padding:10px 12px;border-radius:10px;background:rgba(91,140,255,.07);border:1px solid rgba(91,140,255,.2)}.pick b{font-size:14px}.mut{color:var(--mut);font-size:13px}.pos{color:var(--green)}.neg{color:var(--red)}.blu{color:var(--blue2)}.amb{color:var(--amber)}
+.line-score{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.line-score .metric{padding:12px}.line-score .metric b{font-size:17px}.empty{padding:22px;text-align:center;color:var(--mut);background:rgba(16,23,34,.7);border:1px dashed var(--line2);border-radius:13px;font-size:13px}.board-list{display:grid;gap:9px}.board-card{padding:15px;border:1px solid var(--line);border-radius:13px;background:rgba(21,31,45,.72)}.board-top{display:flex;justify-content:space-between;gap:14px}.board-title{font-weight:710;overflow-wrap:anywhere}.board-time{margin-top:3px;color:var(--faint);font-size:11px}.board-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:11px}.board-metrics .metric{padding:8px}.board-action{margin-top:10px;color:var(--green);font-weight:700;font-size:13px}.news-note{margin-top:9px;color:var(--mut);font-size:12px;overflow-wrap:anywhere}
+.calibration{margin-top:30px}.calib-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.calib{padding:15px;border-radius:13px;background:var(--raised);border:1px solid var(--line)}.calib .lab{display:flex;justify-content:space-between;gap:10px;font-size:12px}.calib .lab b{font-size:13px}.bar{position:relative;height:9px;margin:13px 0 9px;background:#293548;border-radius:999px;overflow:visible}.bar .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--blue),var(--blue2));border-radius:999px}.bar .mark{position:absolute;top:-4px;width:3px;height:17px;border-radius:2px;background:var(--amber);box-shadow:0 0 0 3px rgba(246,196,83,.1)}.calib-legend{display:flex;justify-content:space-between;color:var(--faint);font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.strat{background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:16px}.strat h3{margin:0;font-size:15px}.strat .desc{color:var(--mut);font-size:12px}.strat .big{display:flex;align-items:baseline;gap:10px}.strat .wr{font-size:27px;font-weight:760}.strat .meta{display:flex;gap:12px;color:var(--mut);font-size:12px}.three{display:flex;gap:7px;margin:10px 0}.three>div{flex:1;text-align:center;background:var(--soft);border-radius:9px;padding:7px}.three b{display:block;font-size:15px}.brand .dot{color:var(--green)}.sect{display:flex;align-items:center;gap:10px;margin-top:28px;margin-bottom:12px;flex-wrap:wrap}.sect .mut{font-weight:400}.foot{margin-top:34px;padding:20px;border-top:1px solid var(--line);color:var(--faint);text-align:center;font-size:12px}.foot strong{color:var(--mut)}
+.mobile-nav{display:none}.risk-note{margin-top:18px;padding:13px 15px;border-radius:12px;background:rgba(246,196,83,.06);color:var(--mut);font-size:12px;border:1px solid rgba(246,196,83,.15)}
+:focus-visible{outline:2px solid #78a9ff;outline-offset:3px}
+@media(max-width:1020px){.wrap{width:min(100% - 32px,900px)}.primary-grid,.secondary-grid{grid-template-columns:1fr}.side-stack{grid-template-columns:repeat(2,minmax(0,1fr))}.calib-grid{grid-template-columns:1fr}.live-grid{grid-template-columns:1fr}}
+@media(max-width:700px){body{font-size:14px}.wrap{width:calc(100% - 24px);padding-bottom:100px}.top{min-height:52px}.brand-copy small,.health{display:none}.tabs{margin:0 -12px 18px;padding-left:12px;overflow:auto}.tab{min-width:112px}.page-intro{display:block}.freshness{display:block;margin-top:8px}.hero{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{min-height:102px;padding:14px}.stat .v{font-size:25px}.primary-grid,.secondary-grid{gap:12px}.panel-pad,.status-card{padding:15px}.side-stack{grid-template-columns:1fr}.signal-head,.mrow,.board-top{align-items:flex-start;flex-direction:column}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.signal-foot,.pick{align-items:flex-start;flex-direction:column}.live-grid{grid-template-columns:1fr}.board-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.mobile-nav{position:fixed;z-index:30;left:10px;right:10px;bottom:10px;display:grid;grid-template-columns:repeat(4,1fr);padding:7px;background:rgba(16,23,34,.94);border:1px solid var(--line2);border-radius:15px;backdrop-filter:blur(18px);box-shadow:var(--shadow)}.mobile-nav a{display:grid;place-items:center;min-height:43px;border-radius:9px;color:var(--mut);text-decoration:none;font-size:11px}.mobile-nav a:focus,.mobile-nav a:hover{background:var(--raised);color:var(--txt)}}
+@media(max-width:420px){.hero{grid-template-columns:1fr 1fr}.stat .s{font-size:11px}.board-metrics{grid-template-columns:1fr}.top-status .clock{padding:5px 8px}.pick-main{display:block}.pick-main strong{overflow-wrap:anywhere}.pick-main span{display:block;margin-top:4px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+</style></head><body><a class="skip" href="#main">К содержанию</a><div class="wrap">
+<header class=top><a class=brand href="/" aria-label="Analyst — главная"><span class=brand-mark aria-hidden=true>A</span>
+<span class=brand-copy>Analyst<small>CS2 decision dashboard</small></span></a>
+<div class=top-status><span class=health><span class=live></span>обновлено 13 сек назад</span><span class=clock>18:51 UTC</span></div></header>
+<nav class="tabs" aria-label="Вид спорта"><a href="/" class="tab active" aria-current=page><span class=sport-dot aria-hidden=true></span>CS2</a><a href="/football" class="tab"><span class=sport-dot aria-hidden=true></span>Футбол</a></nav>
+<main id=main><section class=page-intro aria-labelledby=page-title><div><p class=eyebrow>Обзор</p>
+<h1 id=page-title>Сигналы и состояние модели</h1><p class=tagline>Сначала — что заслуживает внимания прямо сейчас. Затем live-матчи, рынок и проверка точности.</p></div>
+<span class=freshness>Forward-test · без ретроспективной подгонки</span></section>
+<section class=hero aria-label="Ключевые показатели">
+<article class="stat profit"><div class=k>Прибыль</div><div class="v pos">+14.04u</div><div class=s>110 рассчитанных ставок</div></article>
+<article class=stat><div class=k>ROI</div><div class="v pos">+12.8%</div><div class=s>за весь forward-test</div></article>
+<article class=stat><div class=k>Проходимость</div><div class=v>57%</div><div class=s>63 выиграно · 86 ждут</div></article>
+<article class="stat alerts"><div class=k>Активные сигналы</div><div class="v blu">7</div><div class=s>9 live-матча сейчас</div></article></section>
+<section class=primary-grid><div class="panel panel-pad" id=signals><div class=section-head><div><h2>Сигналы сейчас</h2>
+<p>Отсортированы по срочности и практической ценности</p></div><span class=count aria-label="Активных сигналов: 7">7</span></div><div class=signals>
+<article class="signal live-signal">
+<div class=signal-head><div><div class=signal-kicker>Движение линии · STEAM</div>
+<h3>THE LAST RESORT vs FNATIC</h3></div><span class="badge b-live">Срочно · сила 24%</span></div>
+<div class=pick-main><strong>Ставка: THE LAST RESORT @ 3.8</strong><span>линия 5 → 3.8</span></div>
+<div class=metric-grid><div class=metric><span>Открытие</span><b>5</b></div>
+<div class=metric><span>Сейчас</span><b>3.8</b></div>
+<div class=metric><span>Сила движения</span><b>24%</b></div>
+<div class=metric><span>Режим</span><b>STEAM</b></div></div>
+<div class=signal-foot><span class=source>Новости проверены</span><span>рынок движется в ту же сторону</span></div></article>
+<article class="signal live-signal">
+<div class=signal-head><div><div class=signal-kicker>Движение линии · STEAM</div>
+<h3>SPARTA GAMING vs BUSHIDO WILDCATS</h3></div><span class="badge b-live">Срочно · сила 38%</span></div>
+<div class=pick-main><strong>Ставка: BUSHIDO WILDCATS @ 1.55</strong><span>линия 2.48 → 1.55</span></div>
+<div class=metric-grid><div class=metric><span>Открытие</span><b>2.48</b></div>
+<div class=metric><span>Сейчас</span><b>1.55</b></div>
+<div class=metric><span>Сила движения</span><b>38%</b></div>
+<div class=metric><span>Режим</span><b>STEAM</b></div></div>
+<div class=signal-foot><span class=source>Новости проверены</span><span>рынок движется в ту же сторону</span></div></article>
+<article class="signal live-signal">
+<div class=signal-head><div><div class=signal-kicker>Движение линии · EARLY</div>
+<h3>ENTROPY GAMING vs MISA</h3></div><span class="badge b-live">Срочно · сила 63%</span></div>
+<div class=pick-main><strong>Ставка: ENTROPY GAMING @ 3.5</strong><span>линия 3 → 3.5</span></div>
+<div class=metric-grid><div class=metric><span>Открытие</span><b>3</b></div>
+<div class=metric><span>Сейчас</span><b>3.5</b></div>
+<div class=metric><span>Сила движения</span><b>63%</b></div>
+<div class=metric><span>Режим</span><b>EARLY</b></div></div>
+<div class=signal-foot><span class=source>Новости проверены</span><span>рынок движется в ту же сторону</span></div></article>
+<article class=signal>
+<div class=signal-head><div><div class=signal-kicker>Тоталы раундов · прематч</div>
+<h3>PROCYON vs RED FEET</h3></div><span class="badge b-val">Преимущество +4.7 п.п.</span></div>
+<div class=pick-main><strong>ТМ 21.5 @ 1.95</strong><span>основной сценарий модели</span></div>
+<div class=metric-grid><div class=metric><span>Модель</span><b>56%</b></div>
+<div class=metric><span>Рынок</span><b>51.3%</b></div>
+<div class=metric><span>Разница</span><b class=pos>+4.7 п.п.</b></div>
+<div class=metric><span>Уверенность</span><b>средняя</b></div></div>
+<div class=signal-foot><span class=source>Линия проверена</span><span>Winline · коэффициент 1.95</span></div></article>
+<article class=signal>
+<div class=signal-head><div><div class=signal-kicker>Тоталы раундов · прематч</div>
+<h3>ENTROPY GAMING vs MISA</h3></div><span class="badge b-val">Преимущество +4.7 п.п.</span></div>
+<div class=pick-main><strong>ТМ 21.5 @ 1.95</strong><span>основной сценарий модели</span></div>
+<div class=metric-grid><div class=metric><span>Модель</span><b>56%</b></div>
+<div class=metric><span>Рынок</span><b>51.3%</b></div>
+<div class=metric><span>Разница</span><b class=pos>+4.7 п.п.</b></div>
+<div class=metric><span>Уверенность</span><b>средняя</b></div></div>
+<div class=signal-foot><span class=source>Линия проверена</span><span>Winline · коэффициент 1.95</span></div></article>
+<article class=signal>
+<div class=signal-head><div><div class=signal-kicker>Тоталы раундов · прематч</div>
+<h3>METANOIA vs PATINS DA FERRARI</h3></div><span class="badge b-val">Преимущество +4.2 п.п.</span></div>
+<div class=pick-main><strong>ТМ 21.5 @ 1.93</strong><span>основной сценарий модели</span></div>
+<div class=metric-grid><div class=metric><span>Модель</span><b>56%</b></div>
+<div class=metric><span>Рынок</span><b>51.8%</b></div>
+<div class=metric><span>Разница</span><b class=pos>+4.2 п.п.</b></div>
+<div class=metric><span>Уверенность</span><b>средняя</b></div></div>
+<div class=signal-foot><span class=source>Линия проверена</span><span>Winline · коэффициент 1.93</span></div></article>
+<article class=signal>
+<div class=signal-head><div><div class=signal-kicker>Тоталы раундов · прематч</div>
+<h3>LARGADOSYPELADOS vs IMPERIAL ESPORTS</h3></div><span class="badge b-val">Преимущество +2.5 п.п.</span></div>
+<div class=pick-main><strong>ТМ 21.5 @ 1.87</strong><span>основной сценарий модели</span></div>
+<div class=metric-grid><div class=metric><span>Модель</span><b>56%</b></div>
+<div class=metric><span>Рынок</span><b>53.5%</b></div>
+<div class=metric><span>Разница</span><b class=pos>+2.5 п.п.</b></div>
+<div class=metric><span>Уверенность</span><b>средняя</b></div></div>
+<div class=signal-foot><span class=source>Линия проверена</span><span>Winline · коэффициент 1.87</span></div></article>
+</div></div><aside class=side-stack>
+<section class="panel status-card" aria-labelledby=status-title><div class=status-line><div><div class=signal-kicker>Состояние системы</div>
+<strong id=status-title>Данные актуальны</strong></div><span class="badge b-ok">В норме</span></div>
+<div class=line-score><div class=metric><span>Live-матчи</span><b>9</b></div><div class=metric><span>В расчёте</span><b>86</b></div></div></section>
+<section class="panel status-card" aria-labelledby=strategy-title><div class=section-head><div><h2 id=strategy-title>Стратегии</h2><p>Компактная статистика</p></div></div><div class=strategy-list>
+<div class=strategy><div class=strategy-top><span>LIVE лаг-линии</span><b class="pos">ROI +52.4%</b></div>
+<div class=strategy-meta><span>86% проходимость</span><span>7 ставок</span><span>17 ждут</span></div></div>
+<div class=strategy><div class=strategy-top><span>Прематч value</span><b class="pos">ROI +1.7%</b></div>
+<div class=strategy-meta><span>44% проходимость</span><span>16 ставок</span><span>2 ждут</span></div></div>
+<div class=strategy><div class=strategy-top><span>Тоталы раундов</span><b class="pos">ROI +11.6%</b></div>
+<div class=strategy-meta><span>57% проходимость</span><span>87 ставок</span><span>67 ждут</span></div></div>
+</div><details class=method><summary>Как читать показатели</summary><p>Проходимость — доля выигранных рассчитанных ставок. ROI — прибыль на одну ставку. Сигнал не гарантирует исход.</p></details></section></aside></section>
+<section class=full-section id=matches><div class=section-head><div><h2>Live-матчи</h2><p>Счёт серии и текущая вероятность победы</p></div><span class=count>9</span></div><div class=live-grid>
+<article class="card live-card"><div class=mrow><h3 class=team>LPH vs mellren</h3><span class="badge b-live">LIVE · 0-0</span></div>
+<div class=match-meta><span>Bo3</span><span>карта уточняется</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>LPH <b>50%</b></span><span><b>50%</b> mellren</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы LPH" aria-valuemin=0 aria-valuemax=100 aria-valuenow="50" style="--pa:50%"><span class=a></span><span class=b></span></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>BESTIA vs Keyd Stars</h3><span class="badge b-live">LIVE · 0-0</span></div>
+<div class=match-meta><span>Bo3</span><span>Ancient</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>BESTIA <b>40.8%</b></span><span><b>59.2%</b> Keyd Stars</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы BESTIA" aria-valuemin=0 aria-valuemax=100 aria-valuenow="40.8" style="--pa:40.8%"><span class=a></span><span class=b></span></div><div class=pick><span class=mut>Тотал Ancient · ожидание 21.4</span><b class=blu>ТМ 21.5 @ 1.81</b></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>MOUZ NXT vs Noir Verse</h3><span class="badge b-live">LIVE · 1-1</span></div>
+<div class=match-meta><span>Bo3</span><span>карта уточняется</span><span>решающая карта</span></div>
+<div class=prob-labels><span>MOUZ NXT <b>50.3%</b></span><span><b>49.7%</b> Noir Verse</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы MOUZ NXT" aria-valuemin=0 aria-valuemax=100 aria-valuenow="50.3" style="--pa:50.3%"><span class=a></span><span class=b></span></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>SPARTA vs Bushido Wildcats</h3><span class="badge b-live">LIVE · 0-1</span></div>
+<div class=match-meta><span>Bo3</span><span>карта уточняется</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>SPARTA <b>36.1%</b></span><span><b>63.9%</b> Bushido Wildcats</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы SPARTA" aria-valuemin=0 aria-valuemax=100 aria-valuenow="36.1" style="--pa:36.1%"><span class=a></span><span class=b></span></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>Entropy vs Atreides</h3><span class="badge b-live">LIVE · 1-0</span></div>
+<div class=match-meta><span>Bo3</span><span>Mirage</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>Entropy <b>64.4%</b></span><span><b>35.6%</b> Atreides</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы Entropy" aria-valuemin=0 aria-valuemax=100 aria-valuenow="64.4" style="--pa:64.4%"><span class=a></span><span class=b></span></div><div class=pick><span class=mut>Тотал Mirage · ожидание 21.3</span><b class=blu>ТМ 21.5 @ 1.8</b></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>Misa vs QUAZAR</h3><span class="badge b-live">LIVE · 0-0</span></div>
+<div class=match-meta><span>Bo3</span><span>Anubis</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>Misa <b>45.6%</b></span><span><b>54.4%</b> QUAZAR</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы Misa" aria-valuemin=0 aria-valuemax=100 aria-valuenow="45.6" style="--pa:45.6%"><span class=a></span><span class=b></span></div><div class=pick><span class=mut>Тотал Anubis · ожидание 21.6</span><b class=blu>ТМ 21.5 @ 1.94</b></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>fnatic vs The Last Resort</h3><span class="badge b-live">LIVE · 1-0</span></div>
+<div class=match-meta><span>Bo3</span><span>карта уточняется</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>fnatic <b>83.3%</b></span><span><b>16.7%</b> The Last Resort</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы fnatic" aria-valuemin=0 aria-valuemax=100 aria-valuenow="83.3" style="--pa:83.3%"><span class=a></span><span class=b></span></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>Vexar vs Inner Circle Academy</h3><span class="badge b-live">LIVE · 0-1</span></div>
+<div class=match-meta><span>Bo3</span><span>карта уточняется</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>Vexar <b>25.7%</b></span><span><b>74.3%</b> Inner Circle Academy</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы Vexar" aria-valuemin=0 aria-valuemax=100 aria-valuenow="25.7" style="--pa:25.7%"><span class=a></span><span class=b></span></div></article>
+<article class="card live-card"><div class=mrow><h3 class=team>HOTU vs BRUTE</h3><span class="badge b-live">LIVE · 0-0</span></div>
+<div class=match-meta><span>Bo3</span><span>Dust2</span><span>серия продолжается</span></div>
+<div class=prob-labels><span>HOTU <b>51.9%</b></span><span><b>48.1%</b> BRUTE</span></div>
+<div class=probbar role=progressbar aria-label="Вероятность победы HOTU" aria-valuemin=0 aria-valuemax=100 aria-valuenow="51.9" style="--pa:51.9%"><span class=a></span><span class=b></span></div><div class=pick><span class=mut>Тотал Dust2 · ожидание 21.3</span><b class=blu>ТМ 21.5 @ 1.75</b></div></article>
+</div></section>
+<section class=secondary-grid><div class="panel panel-pad" id=upcoming><div class=section-head><div><h2>Ближайшие матчи</h2>
+<p>Модель, букмекер и проверка новостей в одной строке</p></div><span class=count>2</span></div><div class=board-list>
+<article class=board-card><div class=board-top><div><div class=board-title>GenOne vs RUSTEC</div>
+<div class=board-time>13.07 · 08:00 UTC · Bo3</div></div><span class="badge b-neutral">Наблюдаем</span></div>
+<div class=board-metrics><div class=metric><span>Модель</span><b>54.4%</b></div><div class=metric><span>Букмекер</span><b>65.1%</b></div>
+<div class=metric><span>Разница</span><b class="neg">-10.7 п.п.</b></div></div><div class=news-note>Анти-свип: RUSTEC возьмёт минимум карту · 79.5%</div>
+<div class=signal-foot><span class=source>Новости проверены</span><span>RUSTEC · оцениваемая сторона</span></div></article>
+<article class=board-card><div class=board-top><div><div class=board-title>LP vs Imperial</div>
+<div class=board-time>12.07 · 21:00 UTC · Bo3</div></div><span class="badge b-neutral">Наблюдаем</span></div>
+<div class=board-metrics><div class=metric><span>Модель</span><b>51%</b></div><div class=metric><span>Букмекер</span><b>0%</b></div>
+<div class=metric><span>Разница</span><b class="pos">+51.0 п.п.</b></div></div>
+<div class=signal-foot><span class="source neutral">Статус новостей неизвестен</span><span>Imperial · оцениваемая сторона</span></div></article>
+</div></div><aside class=side-stack>
+<section class="panel status-card" id=market><div class=section-head><div><h2>Движение линии</h2><p>История стратегии «следуй за рынком»</p></div></div>
+<div class=line-score><div class=metric><span>Сыграно</span><b>53</b></div><div class=metric><span>Победы</span><b>25</b></div>
+<div class=metric><span>Проходимость</span><b>47%</b></div><div class=metric><span>ROI</span><b class="neg">-19.6%</b></div></div>
+<div class=risk-note>11 сигналов ждут расчёта. Красный ROI — повод снизить вес стратегии, а не скрывать результат.</div></section>
+<section class="panel status-card"><div class=section-head><div><h2>Прозрачность</h2><p>Почему интерфейсу можно доверять</p></div></div>
+<div class=strategy-list><div class=strategy><div class=strategy-top><span>Результаты</span><b>forward-test</b></div><div class=strategy-meta><span>без удаления проигрышей</span></div></div>
+<div class=strategy><div class=strategy-top><span>Новости</span><b>структурный статус</b></div><div class=strategy-meta><span>без служебной разметки</span></div></div></div></section></aside></section>
+<section class="panel panel-pad calibration" id=accuracy><div class=section-head><div><h2>Точность модели</h2>
+<p>Синий — фактическая проходимость, жёлтая метка — ожидание модели</p></div></div><div class=calib-grid>
+<article class=calib><div class=lab><b>Победитель серии</b><span class="badge b-ok">Калибрована</span></div>
+<div class=bar aria-hidden=true><div class=fill style="width:54%"></div><div class=mark style="left:56%"></div></div>
+<div class=calib-legend><span>факт 54%</span><span>модель 56%</span></div>
+<div class=news-note>271 ставок · разница -2.0 п.п.</div></article>
+<article class=calib><div class=lab><b>Победитель карты</b><span class="badge b-ok">Калибрована</span></div>
+<div class=bar aria-hidden=true><div class=fill style="width:51%"></div><div class=mark style="left:55%"></div></div>
+<div class=calib-legend><span>факт 51%</span><span>модель 55%</span></div>
+<div class=news-note>544 ставок · разница -4.0 п.п.</div></article>
+<article class=calib><div class=lab><b>Тотал раундов</b><span class="badge b-ok">Калибрована</span></div>
+<div class=bar aria-hidden=true><div class=fill style="width:56%"></div><div class=mark style="left:56%"></div></div>
+<div class=calib-legend><span>факт 56%</span><span>модель 56%</span></div>
+<div class=news-note>522 ставок · разница +0.0 п.п.</div></article>
+</div></section><div class=risk-note><strong>Важно:</strong> вероятности и коэффициенты не гарантируют результат. Используйте фиксированный размер ставки и не увеличивайте риск после проигрыша.</div>
+</main><nav class=mobile-nav aria-label="Быстрая навигация"><a href="#main">Обзор</a><a href="#signals">Сигналы</a><a href="#matches">Матчи</a><a href="#accuracy">Точность</a></nav>
+<footer class=foot><strong>Analyst</strong> · данные обновляются автоматически · все результаты сохраняются в forward-test</footer></div></body></html>

@@ -1,0 +1,7 @@
+[Unit]
+Description=Rebuild CS2 pre-match board every 20 min
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=20min
+[Install]
+WantedBy=timers.target

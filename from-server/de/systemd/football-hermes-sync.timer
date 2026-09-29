@@ -1,0 +1,8 @@
+[Unit]
+Description=Football->Hermes sync every 3h
+[Timer]
+OnBootSec=8min
+OnUnitActiveSec=3h
+Persistent=true
+[Install]
+WantedBy=timers.target

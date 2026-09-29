@@ -1,0 +1,8 @@
+[Unit]
+Description=CS2 pre-match bet resolver
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python prematch_resolve.py
+TimeoutStartSec=180

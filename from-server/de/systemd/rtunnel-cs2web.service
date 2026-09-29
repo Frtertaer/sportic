@@ -1,0 +1,10 @@
+[Unit]
+Description=Reverse tunnel DE cs2-web -> US:8920
+After=network-online.target
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -i /root/.ssh/de_to_us_ed25519 -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -N -R 127.0.0.1:8920:127.0.0.1:8920 root@23.133.88.167
+Restart=always
+RestartSec=10
+[Install]
+WantedBy=multi-user.target

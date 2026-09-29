@@ -1,0 +1,514 @@
+#!/usr/bin/env python3
+"""CS2 analyst web dashboard (stdlib only, no deps). Clean live view so alerts don't pile
+up in Telegram. Shows: LIVE matches (maps + model + round-total + fair odds), current
+round-total VALUE picks vs winline, and forward-test ROI. Auto-refreshes.
+
+  python cs2_web.py            serve on 0.0.0.0:8920
+"""
+from __future__ import annotations
+from web_ui import render, render_football
+
+import html
+import json
+import math
+import sys
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+import bo3_client as bo3  # noqa: E402
+import live_scenarios as L  # noqa: E402
+import round_totals as rtot  # noqa: E402
+
+PORT = 8920
+_CACHE: dict = {"t": 0, "data": None}
+CACHE_TTL = 15
+NEUTRAL = (21.0, 22.0)
+MIN_EDGE, MAX_EDGE = 0.04, 0.12
+
+
+def _read_jsonl(p: Path) -> list:
+    out = []
+    if p.exists():
+        for ln in p.read_text(encoding="utf-8").splitlines():
+            if ln.strip():
+                try:
+                    out.append(json.loads(ln))
+                except Exception:  # noqa: BLE001
+                    pass
+    return out
+
+
+def _live() -> list:
+    try:
+        cur = bo3._get("/matches", {"filter[matches.status][eq]": "current",
+            "filter[matches.discipline_id][eq]": 1, "page[limit]": 20}).get("results", [])
+    except Exception:  # noqa: BLE001
+        return []
+    out = []
+    for m in cur:
+        try:
+            s = L.live_games(m.get("slug"))
+        except Exception:  # noqa: BLE001
+            s = None
+        if not s:
+            continue
+        rt = None
+        if s.get("cur_map"):
+            pcur = s["p_cur_map"].get(s["team1"], 0.5)
+            ou = rtot.over_under(s["cur_map"], pcur, 21.5)
+            side = "ТБ" if ou["p_over"] >= 0.5 else "ТМ"
+            rt = {"map": s["cur_map"], "exp": ou["expected"], "side": side,
+                  "fair": ou["fair_over"] if side == "ТБ" else ou["fair_under"]}
+        fair = {k: round(1 / v, 2) for k, v in s["p_series"].items() if v and v > 0.01}
+        out.append({**s, "round_total": rt, "fair_series": fair})
+    return out
+
+
+def _value_totals() -> list:
+    rows = []
+    try:
+        wl = json.loads((ROOT / "data" / "winline_totals.json").read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        wl = []
+    for r in wl:
+        cands = [t for t in (r.get("totals") or []) if NEUTRAL[0] <= t["line"] <= NEUTRAL[1]]
+        if not cands:
+            continue
+        tl = min(cands, key=lambda x: abs(x["line"] - 21.5))
+        p_over = rtot.avg_over(tl["line"])
+        if p_over is None:
+            continue
+        e_over, e_under = p_over * tl["over"] - 1, (1 - p_over) * tl["under"] - 1
+        side, edge, odd, p = (("ТБ", e_over, tl["over"], p_over) if e_over >= e_under
+                              else ("ТМ", e_under, tl["under"], 1 - p_over))
+        if MIN_EDGE <= edge <= MAX_EDGE:
+            rows.append({"t1": r["t1"], "t2": r["t2"], "line": tl["line"], "side": side,
+                         "odd": odd, "edge": round(edge * 100), "p": round(p * 100)})
+    return sorted(rows, key=lambda x: -x["edge"])
+
+
+def _record_key(row: dict) -> str:
+    """Return the stable identity shared by a forward-test log and its result."""
+    for field in ("key", "slug", "logged_at", "id"):
+        value = row.get(field)
+        if value not in (None, ""):
+            return f"{field}:{value}"
+    return "row:" + json.dumps(row, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
+def _unique_rows(rows: list[dict]) -> list[dict]:
+    out, seen = [], set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        key = _record_key(row)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
+
+
+def _num(value: object, default: float = 0.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    return number if math.isfinite(number) else default
+
+
+def _track_stats(log_name: str, result_name: str) -> dict:
+    """Build a settled-only track from append-only log/result JSONL files."""
+    logs = _unique_rows(_read_jsonl(ROOT / "data" / log_name))
+    results = [r for r in _unique_rows(_read_jsonl(ROOT / "data" / result_name))
+               if r.get("outcome") in ("win", "loss")]
+    done = {_record_key(r) for r in results}
+    pending = sum(1 for row in logs if _record_key(row) not in done)
+    n = len(results)
+    wins = sum(1 for r in results if r.get("outcome") == "win")
+    pl = sum(_num(r.get("pl_units")) for r in results)
+    try:
+        source_ts = int((ROOT / "data" / result_name).stat().st_mtime)
+    except OSError:
+        source_ts = 0
+    stale = bool(n and (time.time() - source_ts > 48 * 3600))
+    return {"n": n, "wins": wins, "winrate": round(wins / n * 100) if n else 0,
+            "pl": round(pl, 2), "roi": round(pl / n * 100, 1) if n else 0,
+            "pending": pending, "source_ts": source_ts, "stale": stale}
+
+
+def _livelag() -> dict:
+    return _track_stats("livelag_ft_log.jsonl", "livelag_ft_results.jsonl")
+
+
+def _prematch() -> dict:
+    return _track_stats("prematch_ft_log.jsonl", "prematch_ft_results.jsonl")
+
+
+def _roi() -> dict:
+    return _track_stats("totals_ft_log.jsonl", "totals_ft_results.jsonl")
+
+
+def _prematch_picks() -> list:
+    """Upcoming, unresolved bettable pre-match picks: ML-value + anti-sweep near-locks (team takes
+    >=1 map, winline 'Фора карт +1.5'). A match counts as 'upcoming' if its start_date is in the
+    future OR its teams are in winline's live pre-match feed (winline_odds.json) — no recency guess."""
+    import re as _re, json as _json
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    def nrm(x):
+        return _re.sub(r"[^a-z0-9]", "", str(x or "").lower())
+    up = set()
+    try:
+        for r in _json.loads((ROOT / "data" / "winline_odds.json").read_text(encoding="utf-8")):
+            up.add(frozenset((nrm(r.get("t1")), nrm(r.get("t2")))))
+    except Exception:
+        pass
+    def upcoming(t1, t2, sd):
+        if sd:
+            try:
+                return datetime.fromisoformat(str(sd).replace("Z", "+00:00")) > now
+            except Exception:
+                pass
+        return frozenset((nrm(t1), nrm(t2))) in up
+    out = []
+    pdone = {r.get("slug") for r in _read_jsonl(ROOT / "data" / "prematch_ft_results.jsonl")}
+    for r in _read_jsonl(ROOT / "data" / "prematch_ft_log.jsonl"):
+        if r.get("slug") in pdone or not r.get("bet_side"):
+            continue
+        if not upcoming(r.get("t1"), r.get("t2"), r.get("start_date")):
+            continue
+        out.append({"t1": r.get("t1"), "t2": r.get("t2"), "side": r.get("bet_side"),
+                    "odd": r.get("bet_odd"), "edge": round(abs(r.get("edge1", 0)) * 100), "kind": "ml"})
+    adone = {r.get("slug") for r in _read_jsonl(ROOT / "data" / "antisweep_ft_results.jsonl")}
+    aseen = set()
+    for r in _read_jsonl(ROOT / "data" / "antisweep_ft_log.jsonl"):
+        slug = r.get("slug")
+        if not slug or slug in adone or slug in aseen or not r.get("bet_team"):
+            continue
+        if (r.get("p_anti") or 0) < 0.70 or (r.get("edge") or 0) <= 0:
+            continue
+        if not upcoming(r.get("t1"), r.get("t2"), r.get("start_date")):
+            continue
+        aseen.add(slug)
+        out.append({"t1": r.get("t1"), "t2": r.get("t2"), "side": r.get("bet_team"),
+                    "odd": r.get("odd"), "edge": round((r.get("edge") or 0) * 100),
+                    "p": round((r.get("p_anti") or 0) * 100), "kind": "anti"})
+    return out[-12:]
+
+
+def _prematch_board() -> list:
+    """Full board of upcoming matches the model evaluated (from prematch_scan) so the section is
+    populated even when there is no strong value pick. Upcoming = start_date in the future."""
+    import json as _json
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    try:
+        rows = _json.loads((ROOT / "data" / "prematch_board.json").read_text(encoding="utf-8")).get("matches", [])
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        sd = r.get("start_date")
+        if sd:
+            try:
+                if datetime.fromisoformat(str(sd).replace("Z", "+00:00")) <= now:
+                    continue
+            except Exception:
+                pass
+        out.append(r)
+    order = {"VALUE": 0, "SUSPICIOUS": 1, "PASS": 2}
+    out.sort(key=lambda r: (order.get(r.get("verdict"), 3), -((r.get("antisweep") or ["", 0])[1] or 0)))
+    return out[:20]
+
+
+def _steam() -> dict:
+    """Live winline line-movement steams still on the board (bettable now) + the follow-the-steam
+    win-rate track. Reads line_steam_log.jsonl / line_steam_results.jsonl / winline_odds.json."""
+    import re, json as _json
+    log = _read_jsonl(ROOT / "data" / "line_steam_log.jsonl")
+    res = _read_jsonl(ROOT / "data" / "line_steam_results.jsonl")
+    def nrm(s):
+        return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+    try:
+        board = {frozenset((nrm(r.get("t1")), nrm(r.get("t2"))))
+                 for r in _json.loads((ROOT / "data" / "winline_odds.json").read_text(encoding="utf-8"))}
+    except Exception:
+        board = set()
+    resolved = {f"{r.get('t1')}|{r.get('t2')}|{r.get('logged_at')}" for r in res}
+    live, seen = [], set()
+    for b in reversed(log):
+        if f"{b.get('t1')}|{b.get('t2')}|{b.get('logged_at')}" in resolved:
+            continue
+        pair = frozenset((nrm(b.get("t1")), nrm(b.get("t2"))))
+        if pair not in board or pair in seen:
+            continue
+        seen.add(pair)
+        live.append({"t1": b.get("t1"), "t2": b.get("t2"), "side": b.get("side"), "entry": b.get("entry"),
+                     "open": b.get("open"), "strength": round((b.get("strength") or 0) * 100),
+                     "mode": b.get("mode", "STEAM"), "news": b.get("news", "")})
+    n = len(res); wn = sum(1 for r in res if r.get("outcome") == "win")
+    pl = sum(r.get("pl_units", 0) for r in res)
+    track = {"n": n, "wins": wn, "winrate": round(100 * wn / n) if n else 0,
+             "roi": round(100 * pl / n, 1) if n else 0, "pending": max(0, len(log) - n)}
+    return {"live": live[:8], "track": track}
+
+
+def _track() -> dict:
+    """Calibration track record: per market (series/map/total) — does the model's stated
+    probability match the realized win rate? The honest 'what's actually working' view."""
+    res = _read_jsonl(ROOT / "data" / "live_picks_results.jsonl")
+    out = {}
+    labels = {"series": "Победитель серии", "map": "Победитель карты", "total": "Тотал раундов"}
+    for mk in ("series", "map", "total"):
+        rr = [r for r in res if r.get("market") == mk and "model_p" in r]
+        if not rr:
+            continue
+        n = len(rr)
+        w = sum(1 for r in rr if r.get("outcome") == "win")
+        avgp = sum(r["model_p"] for r in rr) / n
+        brier = sum((r["model_p"] - (1 if r["outcome"] == "win" else 0)) ** 2 for r in rr) / n
+        out[mk] = {"label": labels[mk], "n": n, "winrate": round(w / n * 100),
+                   "avg_p": round(avgp * 100), "gap": round((w / n - avgp) * 100),
+                   "brier": round(brier, 3), "recent": rr[-5:][::-1]}
+    return out
+
+
+def _football_markets() -> dict:
+    """Where the model has a REAL edge over the bookmaker (Brier vs market on the bot's ~7500-match
+    history) + the calibrated sweet-spots where reality beats the priced line. Win-rate alone lies
+    (1X2 favourites win often but are priced fairly); edge is what actually pays."""
+    import sqlite3
+    try:
+        c = sqlite3.connect("file:/opt/sportsbot/sportsbot.db?mode=ro", uri=True)
+        c.row_factory = sqlite3.Row
+        fam = [dict(r) for r in c.execute(
+            "SELECT family,sample_size,trust_score FROM market_family_quality_profiles "
+            "WHERE scope='GLOBAL' AND sample_size>=1000 ORDER BY trust_score DESC")]
+        spots = [dict(r) for r in c.execute(
+            "SELECT market,bucket_label,sample_size,avg_pred_pct,actual_hit_pct,delta_pct "
+            "FROM numeric_recalibration_profiles WHERE scope='GLOBAL' AND sample_size>=300 "
+            "AND delta_pct>0 ORDER BY delta_pct DESC LIMIT 5")]
+        c.close()
+    except Exception:  # noqa: BLE001
+        return {}
+    fn_ = {"btts": "Обе забьют (BTTS)", "totals": "Тоталы (ТБ/ТМ)", "1x2": "Исход 1X2"}
+    mn_ = {"OVER_2_5": "ТБ 2.5 голов", "BTTS_YES": "Обе забьют", "BTTS_YES_HIGH_TOTALS": "Обе забьют · много голов",
+           "BTTS_YES_MID_TOTALS": "Обе забьют · ср. тотал", "1X2_TOP_PICK": "Исход 1X2"}
+    F = [{"name": fn_.get(r["family"], r["family"]), "n": r["sample_size"],
+          "trust": round(r["trust_score"], 2), "edge": r["trust_score"] > 0} for r in fam]
+    S = [{"market": mn_.get(r["market"], r["market"]), "bucket": r["bucket_label"], "n": r["sample_size"],
+          "pred": round(r["avg_pred_pct"]), "real": round(r["actual_hit_pct"]), "delta": round(r["delta_pct"], 1)}
+         for r in spots]
+    return {"families": F, "spots": S}
+
+
+def _football(db_path: str = "/opt/cs2-analyst/data/sofa_football.db", now: int | None = None) -> dict:
+    """Return current pending rows plus the complete available settled ledger."""
+    import sqlite3
+    now = int(time.time()) if now is None else int(now)
+    try:
+        c = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        c.row_factory = sqlite3.Row
+        pending = [dict(r) for r in c.execute(
+            "SELECT event_id,team1,team2,tournament,kickoff_ts,prob_w1,prob_draw,prob_w2,prob_over_2_5,"
+            "prob_btts_yes,top_rec,top_confidence_pct,risk_level,value_bets FROM preds "
+            "WHERE actual_result IS NULL AND kickoff_ts > ? ORDER BY kickoff_ts ASC LIMIT 40", (now,))]
+        settled_rows = [dict(r) for r in c.execute(
+            "SELECT event_id,team1,team2,top_rec,actual_result,actual_score,actual_gh,actual_ga,"
+            "prob_w1,prob_draw,prob_w2,prob_over_2_5,prob_btts_yes,resolved_at FROM preds "
+            "WHERE actual_result IN ('W1','DRAW','W2') ORDER BY resolved_at ASC,event_id ASC")]
+        c.close()
+    except Exception:  # noqa: BLE001
+        return {"n": 0, "settled_n": 0, "acc": {}, "pending": [], "resolved": [], "value_count": 0}
+
+    # event_id is the database primary key; retain the guard for fixture/import safety.
+    resolved_all, seen_ids = [], set()
+    for row in settled_rows:
+        event_id = row.get("event_id")
+        if event_id in seen_ids:
+            continue
+        seen_ids.add(event_id)
+        resolved_all.append(row)
+    resolved = list(reversed(resolved_all[-16:]))
+
+    def amax(r):
+        w1, dr, w2 = r.get("prob_w1") or 0, r.get("prob_draw") or 0, r.get("prob_w2") or 0
+        return "W1" if w1 >= dr and w1 >= w2 else ("DRAW" if dr >= w2 else "W2")
+
+    n1x2 = [r for r in resolved_all if r.get("actual_result") in ("W1", "DRAW", "W2")]
+    w1x2 = sum(1 for r in n1x2 if amax(r) == r["actual_result"])
+    ou = [r for r in resolved_all if r.get("actual_gh") is not None and r.get("actual_ga") is not None]
+    wou = sum(1 for r in ou if (r["actual_gh"] + r["actual_ga"] > 2.5) == ((r.get("prob_over_2_5") or 0) >= 50))
+    wbt = sum(1 for r in ou if (r["actual_gh"] > 0 and r["actual_ga"] > 0) == ((r.get("prob_btts_yes") or 0) >= 50))
+    # Explicit [wins, settled_total] tuples match both public renderers.
+    acc = {"1x2": (w1x2, len(n1x2)),
+           "ou": (wou, len(ou)),
+           "btts": (wbt, len(ou))}
+    return {"n": len(pending) + len(resolved_all), "settled_n": len(resolved_all),
+            "settled_since": resolved_all[0].get("resolved_at") if resolved_all else None,
+            "acc": acc, "pending": pending, "resolved": resolved, "value_count": 0}
+
+
+
+def _model_spine_meta() -> dict:
+    db = ROOT / "cs2.db"
+    try:
+        mtime = db.stat().st_mtime
+        as_of = time.strftime("%Y-%m-%d", time.gmtime(mtime))
+        spine = "stale" if (time.time() - mtime) / 86400.0 > 3.0 else "fresh"
+    except OSError:
+        mtime, as_of, spine = None, None, "stale"
+    return {"model_spine": spine, "model_as_of": as_of, "model_db_mtime": int(mtime) if mtime else None}
+
+def state() -> dict:
+    if time.time() - _CACHE["t"] < CACHE_TTL and _CACHE["data"]:
+        return _CACHE["data"]
+    meta = _model_spine_meta()
+    d = {"live": _live(), "value": _value_totals(), "roi": _roi(), "prematch": _prematch(), "prematch_picks": _prematch_picks(), "prematch_board": _prematch_board(), "livelag": _livelag(), "steam": _steam(),
+         "track": _track(), "football": _football(), "football_markets": _football_markets(), "ts": int(time.time()),
+         "model_spine": meta["model_spine"], "model_as_of": meta["model_as_of"], "model_db_mtime": meta["model_db_mtime"]}
+    _CACHE.update(t=time.time(), data=d)
+    return d
+
+
+def _old_render(d: dict) -> str:
+    e = html.escape
+    parts = ["""<!doctype html><html lang=ru><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta http-equiv=refresh content=30><title>CS2 analyst</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0e1116;color:#e6e6e6;font:15px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:14px}
+h1{font-size:18px;margin:6px 0 2px}.sub{color:#8a93a0;font-size:12px;margin-bottom:14px}
+h2{font-size:14px;color:#9fb3c8;border-bottom:1px solid #222a35;padding-bottom:6px;margin:20px 0 10px}
+.card{background:#161b22;border:1px solid #222a35;border-radius:10px;padding:12px;margin:8px 0}
+.t{font-weight:600;font-size:15px}.muted{color:#8a93a0;font-size:13px}
+.row{display:flex;justify-content:space-between;gap:8px;margin:4px 0}
+.pill{display:inline-block;background:#1f2937;border-radius:6px;padding:2px 8px;font-size:12px;margin:2px 4px 2px 0}
+.val{background:#16331f;color:#5ad27e;border:1px solid #245e36}
+.dec{color:#f2c14e}.under{color:#62b6ff}.b{font-weight:700}
+.empty{color:#6b7480;font-style:italic;padding:8px 0}
+.roi{font-size:22px;font-weight:700}.pos{color:#5ad27e}.neg{color:#ef6b6b}
+</style></head><body><div class=wrap>
+<h1>🎯 CS2 analyst</h1><div class=sub>обновляется каждые 30с · """ + time.strftime("%H:%M:%S", time.localtime(d["ts"])) + " UTC+0</div>"]
+
+    # LIVE
+    parts.append("<h2>🔴 LIVE сейчас</h2>")
+    if not d["live"]:
+        parts.append("<div class=empty>нет live-матчей</div>")
+    for s in d["live"]:
+        played = " · ".join(f"{e(g['map'])} {e(g['score'])}→{e(str(g['winner']))}"
+                            for g in (s.get("played") or []) if g.get("map") and g.get("winner")
+                            and "None" not in str(g.get("score", "")))
+        ser = " · ".join(f"{e(k)} <b>{int(v*100)}%</b>" for k, v in s["p_series"].items())
+        fair = " / ".join(f"{e(k)} {v}" for k, v in (s.get("fair_series") or {}).items())
+        cm = ""
+        if s.get("cur_map"):
+            cmp_ = " · ".join(f"{e(k)} {int(v*100)}%" for k, v in s["p_cur_map"].items())
+            dec = " 🎯ДЕСАЙДЕР" if s.get("is_decider") else ""
+            cm = f"<div class=row><span class=muted>🗺 идёт {e(s['cur_map'])}{dec}</span><span>{cmp_}</span></div>"
+        rt = ""
+        if s.get("round_total"):
+            r = s["round_total"]
+            rt = f"<div class=row><span class=muted>🎲 тотал {e(r['map'])} ~{r['exp']:.0f}</span><span class=under>{e(r['side'])} 21.5 @ {r['fair']}</span></div>"
+        parts.append(f"""<div class=card>
+<div class=row><span class=t>{e(s['team1'])} vs {e(s['team2'])}</span><span class=muted>Bo{s['bo']} · {e(s['current'])}</span></div>
+{f'<div class=muted>сыграно: {played}</div>' if played else ''}
+{cm}{rt}
+<div class=row><span>серия (модель)</span><span>{ser}</span></div>
+<div class=row><span class=muted>справедл. коэф</span><span class=muted>{fair}</span></div>
+</div>""")
+
+    # VALUE
+    parts.append("<h2>🎲 Value: тоталы раундов</h2>")
+    if not d["value"]:
+        parts.append("<div class=empty>сейчас value-пиков нет</div>")
+    for v in d["value"]:
+        parts.append(f"""<div class="card val">
+<div class=row><span class=t>{e(v['t1'])} vs {e(v['t2'])}</span><span class=pill val>+{v['edge']}%</span></div>
+<div class=row><span class=b>{e(v['side'])} {v['line']} @ {v['odd']}</span><span class=muted>модель {v['p']}%</span></div>
+</div>""")
+
+    # TRACK RECORD / CALIBRATION
+    parts.append("<h2>📊 Точность модели (что заходит)</h2>")
+    tr = d.get("track") or {}
+    if not tr:
+        parts.append("<div class=empty>пока нет рассчитанных прогнозов (накапливается по live-матчам)</div>")
+    for mk in ("series", "map", "total"):
+        t = tr.get(mk)
+        if not t:
+            continue
+        ok = abs(t["gap"]) <= 8
+        verdict = ("✅ калибр? да" if ok else ("⚠️ занижает" if t["gap"] > 0 else "⚠️ завышает"))
+        gcls = "pos" if ok else "neg"
+        rec = " · ".join(f"{e(str(x.get('side',''))[:10])} {'✅' if x['outcome']=='win' else '❌'}"
+                         for x in t["recent"])
+        parts.append(f"""<div class=card>
+<div class=row><span class=t>{e(t['label'])}</span><span class="pill {gcls}">{verdict}</span></div>
+<div class=row><span>ставок <b>{t['n']}</b> · винрейт <b>{t['winrate']}%</b></span>
+<span class=muted>модель ждёт {t['avg_p']}% · Brier {t['brier']}</span></div>
+<div class=muted>последние: {rec}</div></div>""")
+
+    # ROI (totals value picks)
+    r = d["roi"]
+    cls = "pos" if r["roi"] >= 0 else "neg"
+    parts.append(f"""<h2>📈 Форвард-тест (тоталы-value)</h2><div class=card>
+<div class=row><span>ставок: {r['n']} · винрейт {r['winrate']}% · ждут: {r['pending']}</span></div>
+<div class="roi {cls}">ROI {r['roi']:+}%</div><div class=muted>{r['pl']:+} ед.</div></div>""")
+
+    lg = d["livelag"]
+    lcls = "pos" if lg["roi"] >= 0 else "neg"
+    parts.append(f"""<h2>⚡ LIVE lag-value (лаг live-линии)</h2><div class=card>
+<div class=row><span>ставок: {lg['n']} · винрейт <b>{lg['winrate']}%</b> · ждут: {lg['pending']}</span></div>
+<div class="roi {lcls}">ROI {lg['roi']:+}%</div><div class=muted>{lg['pl']:+} ед. · near-certain live (P серии ≥85%, край ≥8%)</div></div>""")
+
+    pm = d["prematch"]
+    pcls = "pos" if pm["roi"] >= 0 else "neg"
+    parts.append(f"""<h2>🔮 Пре-матч скан (аномалии/договорняки → value)</h2><div class=card>
+<div class=row><span>ставок: {pm['n']} · винрейт <b>{pm['winrate']}%</b> · ждут: {pm['pending']}</span></div>
+<div class="roi {pcls}">ROI {pm['roi']:+}%</div><div class=muted>{pm['pl']:+} ед. · модель↔линия расхождение 7-15%, странные матчи в Telegram</div></div>""")
+
+    parts.append("</div></body></html>")
+    return "\n".join(parts)
+
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a):  # quiet
+        pass
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_GET(self):
+        try:
+            d = state()
+        except Exception as exc:  # noqa: BLE001
+            self.send_response(500); self.end_headers()
+            self.wfile.write(f"err: {exc}".encode()); return
+        if self.path.startswith("/api"):
+            body = json.dumps(d, ensure_ascii=False).encode()
+            ctype = "application/json"
+        else:
+            body = (render_football(d) if self.path.startswith("/football") else render(d)).encode()
+            ctype = "text/html; charset=utf-8"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def main() -> None:
+    srv = ThreadingHTTPServer(("0.0.0.0", PORT), H)
+    print(f"CS2 dashboard on :{PORT}")
+    srv.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

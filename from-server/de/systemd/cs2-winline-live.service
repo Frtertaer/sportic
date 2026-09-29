@@ -1,0 +1,9 @@
+[Unit]
+Description=CS2 winline LIVE odds scraper
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/cs2-analyst
+ExecStart=/opt/kwork-monitor/.venv/bin/python winline_live.py
+ExecStartPost=-/opt/kwork-monitor/.venv/bin/python live_edge.py
+TimeoutStartSec=150

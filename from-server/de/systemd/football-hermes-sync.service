@@ -1,0 +1,8 @@
+[Unit]
+Description=Football self-learning -> Hermes shared memory sync
+After=network-online.target
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/sportsbot
+ExecStart=/usr/bin/python3 football_hermes_sync.py
+TimeoutStartSec=120
